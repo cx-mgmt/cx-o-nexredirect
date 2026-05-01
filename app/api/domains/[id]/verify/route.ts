@@ -5,6 +5,7 @@ import { getDb, type DomainRow } from "@/lib/db";
 import { checkDomainDns } from "@/lib/dns";
 import { reloadCaddy } from "@/lib/caddy";
 import { invalidateRedirectCache } from "@/lib/redirect-resolver";
+import { fireWebhook } from "@/lib/webhook";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -25,5 +26,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   db.prepare("UPDATE domains SET status = 'pending' WHERE id = ?").run(row.id);
+  fireWebhook("domain.verify_failed", { domain: row.domain, missing: result.missing }).catch(() => {});
   return NextResponse.json({ ok: false, result });
 }

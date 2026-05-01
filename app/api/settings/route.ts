@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getSetting, setSetting } from "@/lib/db";
 
-const PUBLIC_KEYS = ["base_domain", "admin_email", "update_auto", "update_include_prereleases"];
+const PUBLIC_KEYS = ["base_domain", "admin_email", "update_auto", "update_include_prereleases", "hits_retention_days", "webhook_url"];
 
 export async function GET() {
   const session = await getServerSession(authOptions);

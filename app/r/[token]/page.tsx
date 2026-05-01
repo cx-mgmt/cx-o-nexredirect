@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { getDb, type DomainRow } from "@/lib/db";
 import { verifyPdfToken } from "@/lib/pdf-token";
 import { ReportClient } from "./ReportClient";
 
@@ -13,6 +13,48 @@ export default async function PublicReportPage({ params }: { params: Promise<{ t
   const days = Math.min(365, Math.max(1, Number(p.days || 30)));
   const since = Date.now() - days * 24 * 60 * 60 * 1000;
   const db = getDb();
+  const isDomainReport = p.kind === "domain" && p.domain_id;
+
+  if (isDomainReport) {
+    const did = Number(p.domain_id);
+    const domain = db.prepare("SELECT * FROM domains WHERE id = ?").get(did) as DomainRow | undefined;
+    if (!domain) notFound();
+
+    const totalHits = (db.prepare("SELECT COUNT(*) AS n FROM hits WHERE domain_id = ? AND ts > ?").get(did, since) as { n: number }).n;
+    const uniqueIps = (db.prepare("SELECT COUNT(DISTINCT ip_hash) AS n FROM hits WHERE domain_id = ? AND ts > ?").get(did, since) as { n: number }).n;
+    const daily = db.prepare(`SELECT strftime('%Y-%m-%d', ts/1000, 'unixepoch') AS day, COUNT(*) AS hits FROM hits WHERE domain_id = ? AND ts > ? GROUP BY day ORDER BY day`).all(did, since) as { day: string; hits: number }[];
+    const country = db.prepare(`SELECT COALESCE(country,'??') AS country, COUNT(*) AS hits FROM hits WHERE domain_id = ? AND ts > ? GROUP BY country ORDER BY hits DESC`).all(did, since) as { country: string; hits: number }[];
+    const recentHits = db.prepare(`SELECT h.ts, d.domain, h.country, h.path FROM hits h JOIN domains d ON d.id = h.domain_id WHERE h.domain_id = ? AND h.ts > ? ORDER BY h.ts DESC LIMIT 200`).all(did, since) as { ts: number; domain: string; country: string | null; path: string | null }[];
+
+    return (
+      <ReportClient
+        data={{
+          days,
+          sections: {
+            summary: true,
+            daily: true,
+            top: false,
+            country: country.length > 0,
+            perDomain: false,
+            dead: false,
+            hits: true,
+            title: typeof p.title === "string" ? p.title : `Report: ${domain.domain}`,
+          },
+          totalDomains: 1,
+          activeDomains: domain.status === "active" ? 1 : 0,
+          totalHits,
+          uniqueIps,
+          daily,
+          top: [{ domain: domain.domain, hits: totalHits }],
+          country,
+          dead: [],
+          perDomain: [],
+          recentHits,
+          generatedAt: Date.now(),
+        }}
+      />
+    );
+  }
 
   const sections = {
     summary: p.summary === "1",

@@ -13,6 +13,8 @@ type Settings = {
   admin_email: string | null;
   update_auto: string | null;
   update_include_prereleases: string | null;
+  hits_retention_days: string | null;
+  webhook_url: string | null;
 };
 
 type UpdateStatus = {
@@ -245,6 +247,29 @@ export default function SettingsPage() {
                 onBlur={(e) => save({ admin_email: e.target.value.trim() })}
               />
               <p className="text-[11px] text-muted-foreground">Wird von Caddy für ACME/Let&apos;s Encrypt benötigt.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="retention">Hit-Retention (Tage)</Label>
+              <Input
+                id="retention"
+                type="number"
+                min={0}
+                placeholder="365"
+                defaultValue={settings.hits_retention_days ?? "365"}
+                onBlur={(e) => save({ hits_retention_days: e.target.value || "365" })}
+              />
+              <p className="text-[11px] text-muted-foreground">Hits älter als diese Anzahl Tage werden täglich gelöscht. 0 = nie löschen.</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="webhook">Webhook-URL</Label>
+              <Input
+                id="webhook"
+                type="url"
+                placeholder="https://hooks.example.com/..."
+                defaultValue={settings.webhook_url ?? ""}
+                onBlur={(e) => save({ webhook_url: e.target.value.trim() })}
+              />
+              <p className="text-[11px] text-muted-foreground">POST mit JSON bei Domain-Verify-Fail / Update-Available. Leer = aus.</p>
             </div>
           </CardContent>
         </Card>

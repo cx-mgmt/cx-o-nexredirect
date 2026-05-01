@@ -1,5 +1,6 @@
 import { getDb, hashIp } from "./db";
 import { lookupCountry } from "./geo";
+import { block } from "./blocklist";
 
 // Patterns we don't want polluting analytics
 const BOT_UA = /bot|crawl|spider|slurp|curl|wget|httpclient|python-requests|axios|node-fetch|monitor|uptime|pingdom|datadog|prometheus|scanner|fetch|preview|whatsapp|telegrambot|facebookexternalhit|linkedinbot|twitterbot|discordbot|skypeuripreview|mastodon|matrix-bot|preconnect|dnsperf|sentry|newrelic|gtmetrix|lighthouse|headlesschrome|phantomjs|puppeteer|playwright|chrome-lighthouse|go-http-client|java\/|okhttp|libwww|mechanize|nikto|sqlmap|nmap|masscan|zgrab|nuclei|acunetix|netcraft|expanse|censys|shodan|fuzz|burp|arachni|w3af|nikto|wpscan|gobuster|ffuf|dirb|dirbuster/i;
@@ -93,6 +94,8 @@ const SCAN_WINDOW_MS = 30_000;
 type Tracker = { paths: Set<string>; firstSeen: number };
 const ipTracker = new Map<string, Tracker>();
 
+const PERSIST_BLOCK_THRESHOLD = 12; // sustained burst → DB blocklist (24h)
+
 function ipScanCheck(ipHash: string, path: string): boolean {
   const now = Date.now();
   const cur = ipTracker.get(ipHash);
@@ -101,6 +104,9 @@ function ipScanCheck(ipHash: string, path: string): boolean {
     return false;
   }
   cur.paths.add(path);
+  if (cur.paths.size === PERSIST_BLOCK_THRESHOLD) {
+    try { block(ipHash, 24, "scanner_burst"); } catch {}
+  }
   if (cur.paths.size > SCAN_THRESHOLD) return true;
   return false;
 }

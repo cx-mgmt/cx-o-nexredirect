@@ -25,10 +25,22 @@ export function buildCaddyfile(): string {
   lines.push(`}`);
   lines.push(``);
 
+  const adminHeaders = [
+    `  header {`,
+    `    Strict-Transport-Security "max-age=31536000; includeSubDomains"`,
+    `    X-Content-Type-Options "nosniff"`,
+    `    X-Frame-Options "DENY"`,
+    `    Referrer-Policy "strict-origin-when-cross-origin"`,
+    `    Permissions-Policy "geolocation=(), microphone=(), camera=()"`,
+    `    -Server`,
+    `  }`,
+  ];
+
   // Admin-UI
   const adminHosts: string[] = [":80"];
   if (baseDomain) adminHosts.push(baseDomain);
   lines.push(`${adminHosts.join(", ")} {`);
+  lines.push(...adminHeaders);
   lines.push(`  reverse_proxy localhost:${APP_PORT}`);
   lines.push(`}`);
   lines.push(``);

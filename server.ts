@@ -10,6 +10,8 @@ import next from "next";
 import { resolveHost, isAdminHost } from "./lib/redirect-resolver";
 import { recordHit, shouldRecord } from "./lib/hits";
 import { renderSunsetPage } from "./lib/sunset-html";
+import { isBlocked } from "./lib/blocklist";
+import { startJobs } from "./lib/jobs";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -19,6 +21,7 @@ const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
+  startJobs();
   const server = http.createServer(async (req, res) => {
     try {
       const host = (req.headers.host || "").split(":")[0].toLowerCase();
@@ -35,6 +38,12 @@ app.prepare().then(() => {
           // Hash IP early so we can use it for the scan-detector check
           const { hashIp } = await import("./lib/db");
           const ipHash = hashIp(ip);
+          // Persistent blocklist: drop without recording or redirecting
+          if (isBlocked(ipHash)) {
+            res.writeHead(403, { "Content-Type": "text/plain" });
+            res.end("Blocked");
+            return;
+          }
           const signals = {
             accept: (req.headers["accept"] as string) || null,
             acceptLanguage: (req.headers["accept-language"] as string) || null,
