@@ -103,6 +103,11 @@ function setSettingDirect(db: Database.Database, key: string, value: string) {
   db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
 }
 
+function hasColumn(db: Database.Database, table: string, col: string): boolean {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === col);
+}
+
 function runMigrations(db: Database.Database) {
   // m_301_to_302: switch existing 301-redirects to 302 so browser-cache stops eating hits.
   if (getSettingDirect(db, "m_301_to_302") !== "done") {
@@ -110,6 +115,12 @@ function runMigrations(db: Database.Database) {
     db.prepare("UPDATE domain_groups SET redirect_code = 302 WHERE redirect_code = 301").run();
     setSettingDirect(db, "m_301_to_302", "done");
   }
+
+  // sunset_config column: self-healing — always check schema regardless of setting flag.
+  if (!hasColumn(db, "domains", "sunset_config")) {
+    db.exec("ALTER TABLE domains ADD COLUMN sunset_config TEXT");
+  }
+  setSettingDirect(db, "m_sunset_column", "done");
 }
 
 export function getSetting(key: string): string | null {
