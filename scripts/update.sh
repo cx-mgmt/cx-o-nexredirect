@@ -15,9 +15,12 @@ cd "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
-# Sicherstellen dass sqlite3 für die CLI da ist (idempotent, keine Fehler wenn schon da)
-if ! command -v sqlite3 >/dev/null 2>&1; then
-  apt-get install -y -qq sqlite3 >/dev/null 2>&1 || true
+# Sicherstellen dass sqlite3 + chromium für PDF-Export installiert sind (idempotent)
+NEED_INSTALL=()
+command -v sqlite3 >/dev/null 2>&1 || NEED_INSTALL+=(sqlite3)
+[[ -x /usr/bin/chromium || -x /usr/bin/chromium-browser ]] || NEED_INSTALL+=(chromium)
+if [[ ${#NEED_INSTALL[@]} -gt 0 ]]; then
+  apt-get install -y -qq "${NEED_INSTALL[@]}" >/dev/null 2>&1 || true
 fi
 
 # Caddyfile-Permissions reparieren (App muss schreiben können)

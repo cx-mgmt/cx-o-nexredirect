@@ -29,7 +29,7 @@ echo "    Data:    $DATA_DIR"
 echo "==> Pakete installieren"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq curl ca-certificates gnupg git debian-keyring debian-archive-keyring apt-transport-https sudo
+apt-get install -y -qq curl ca-certificates gnupg git debian-keyring debian-archive-keyring apt-transport-https sudo sqlite3 chromium
 
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -v 2>/dev/null | cut -c2-3)" != "${NODE_MAJOR}" ]]; then
   echo "==> Node.js ${NODE_MAJOR} installieren"

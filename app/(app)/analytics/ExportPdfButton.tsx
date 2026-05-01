@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { FileDown } from "lucide-react";
+import { FileDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,8 @@ export function ExportPdfButton() {
   const [days, setDays] = useState(30);
   const [title, setTitle] = useState("Domain-Redirect-Report");
   const [sel, setSel] = useState<Record<string, boolean>>(PRESETS.basic);
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState("");
 
   function applyPreset(name: keyof typeof PRESETS) {
     setSel(PRESETS[name]);
@@ -36,11 +38,10 @@ export function ExportPdfButton() {
     const params = new URLSearchParams();
     params.set("days", String(days));
     params.set("title", title);
-    params.set("print", "1");
     for (const s of SECTIONS) {
       params.set(s.key, sel[s.key] ? "1" : "0");
     }
-    return `/analytics/report?${params.toString()}`;
+    return `/api/analytics/report.pdf?${params.toString()}`;
   }
 
   return (
@@ -94,10 +95,36 @@ export function ExportPdfButton() {
             </div>
           </div>
 
+          {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Abbrechen</Button>
-            <Button asChild>
-              <a href={build()} target="_blank" rel="noreferrer">Vorschau & PDF</a>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={downloading}>Abbrechen</Button>
+            <Button onClick={async () => {
+              setDownloading(true);
+              setError("");
+              try {
+                const r = await fetch(build());
+                if (!r.ok) {
+                  const d = await r.json().catch(() => ({}));
+                  setError(d.hint || d.error || `Fehler ${r.status}`);
+                  return;
+                }
+                const blob = await r.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `nexredirect-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                setOpen(false);
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+              } finally {
+                setDownloading(false);
+              }
+            }} disabled={downloading}>
+              {downloading ? <><Loader2 className="mr-2 h-3 w-3 animate-spin" />Generiere...</> : "PDF herunterladen"}
             </Button>
           </div>
         </div>

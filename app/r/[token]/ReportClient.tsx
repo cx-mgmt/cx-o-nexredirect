@@ -1,7 +1,5 @@
 "use client";
 import { useEffect } from "react";
-import { Printer, ArrowLeft } from "lucide-react";
-import Link from "next/link";
 import { HitsLineChart } from "@/components/charts/HitsLineChart";
 import { TopDomainsBarChart } from "@/components/charts/TopDomainsBarChart";
 import { CountryPie } from "@/components/charts/CountryPie";
@@ -41,21 +39,22 @@ const NR_LOGO = (
         <stop offset="100%" stopColor="#059669" />
       </linearGradient>
     </defs>
-    <rect width="80" height="80" rx="16" fill="#fff" stroke="#e5e7eb" />
-    <text x="40" y="56" textAnchor="middle" fontFamily="Georgia,'Times New Roman',serif" fontSize="44" fontWeight="400">
+    <text x="40" y="58" textAnchor="middle" fontFamily="Georgia,'Times New Roman',serif" fontSize="56" fontWeight="400" letterSpacing="-3">
       <tspan fill="#09090b">n</tspan>
       <tspan fill="url(#rep-grad)">r</tspan>
     </text>
-    <line x1="22" y1="64" x2="58" y2="64" stroke="url(#rep-grad)" strokeWidth="1" opacity="0.5" />
+    <line x1="18" y1="66" x2="62" y2="66" stroke="url(#rep-grad)" strokeWidth="1.2" opacity="0.5" />
   </svg>
 );
 
 export function ReportClient({ data }: { data: ReportData; logo?: React.ReactNode }) {
   useEffect(() => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("print") === "1") {
-      setTimeout(() => window.print(), 1200);
-    }
+    // Signal puppeteer that the page is ready (after charts mount)
+    const id = setTimeout(() => {
+      (window as unknown as { __pdfReady?: boolean }).__pdfReady = true;
+      document.body.setAttribute("data-pdf-ready", "1");
+    }, 1200);
+    return () => clearTimeout(id);
   }, []);
 
   const s = data.sections;
@@ -294,15 +293,6 @@ export function ReportClient({ data }: { data: ReportData; logo?: React.ReactNod
       `}</style>
 
       <div className="report-shell">
-        <div className="toolbar no-print flex items-center justify-between border-b border-zinc-800/70 bg-zinc-950/95 px-6 py-3 text-zinc-100 backdrop-blur">
-          <Link href="/analytics" className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white">
-            <ArrowLeft className="h-4 w-4" /> Zurück
-          </Link>
-          <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-cyan-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-cyan-400">
-            <Printer className="h-4 w-4" /> Als PDF speichern
-          </button>
-        </div>
-
         {/* COVER */}
         <div className="report-page">
           <div className="rep-hdr">
