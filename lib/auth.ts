@@ -44,10 +44,22 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Match by email OR username
-        const user = getDb()
-          .prepare("SELECT id, email, username, password_hash, role, created_at FROM users WHERE email = ? OR username = ? LIMIT 1")
-          .get(identifier, identifier) as UserRow | undefined;
+        // Match by email OR username. Fallback to email-only if migration hasn't run yet.
+        const db = getDb();
+        let user: UserRow | undefined;
+        try {
+          user = db
+            .prepare("SELECT id, email, username, password_hash, role, created_at FROM users WHERE email = ? OR username = ? LIMIT 1")
+            .get(identifier, identifier) as UserRow | undefined;
+        } catch {
+          // username column missing — self-heal and retry email-only
+          try { db.exec("ALTER TABLE users ADD COLUMN username TEXT"); } catch {}
+          try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL"); } catch {}
+          user = db
+            .prepare("SELECT id, email, password_hash, role, created_at FROM users WHERE email = ? LIMIT 1")
+            .get(identifier) as UserRow | undefined;
+          if (user) (user as UserRow).username = null;
+        }
 
         if (!user) {
           await new Promise((r) => setTimeout(r, 200));
