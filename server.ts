@@ -12,6 +12,7 @@ import { recordHit, shouldRecord } from "./lib/hits";
 import { renderSunsetPage } from "./lib/sunset-html";
 import { isBlocked } from "./lib/blocklist";
 import { startJobs } from "./lib/jobs";
+import { hashIp } from "./lib/db";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -36,7 +37,6 @@ app.prepare().then(() => {
             "unknown";
           const ua = (req.headers["user-agent"] as string) || null;
           // Hash IP early so we can use it for the scan-detector check
-          const { hashIp } = await import("./lib/db");
           const ipHash = hashIp(ip);
           // Persistent blocklist: drop without recording or redirecting
           if (isBlocked(ipHash)) {
