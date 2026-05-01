@@ -1,7 +1,11 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "license": "MIT",
+  "overrides": {
+    "postcss": "^8.5.13",
+    "uuid": "^11.1.0"
+  },
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "next build",
@@ -20,8 +24,8 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "maxmind": "^4.3.20",
-    "next": "15.3.1",
-    "next-auth": "^4.24.0",
+    "next": "^15.5.15",
+    "next-auth": "^4.24.14",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.13.3",
@@ -37,7 +41,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.13",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }
