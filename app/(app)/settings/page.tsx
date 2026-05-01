@@ -29,6 +29,7 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [geo, setGeo] = useState<{ available: boolean; path: string } | null>(null);
   const [licenseKey, setLicenseKey] = useState("");
+  const [accountId, setAccountId] = useState("");
   const [installingGeo, setInstallingGeo] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
   const [saving, setSaving] = useState(false);
@@ -56,15 +57,23 @@ export default function SettingsPage() {
       const r = await fetch("/api/settings/geo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ license_key: licenseKey.trim() }),
+        body: JSON.stringify({
+          license_key: licenseKey.trim(),
+          ...(accountId.trim() ? { account_id: accountId.trim() } : {}),
+        }),
       });
       const d = await r.json();
       if (r.ok) {
         setGeoMsg("GeoLite2-DB installiert.");
         setLicenseKey("");
+        setAccountId("");
         load();
       } else {
-        setGeoMsg(`Fehler: ${d.error || "Download fehlgeschlagen"}`);
+        const parts = [`Fehler: ${d.error || "Download fehlgeschlagen"}`];
+        if (d.status) parts.push(`HTTP ${d.status}`);
+        if (d.detail) parts.push(d.detail);
+        if (d.hint) parts.push(`→ ${d.hint}`);
+        setGeoMsg(parts.join(" — "));
       }
     } finally {
       setInstallingGeo(false);
@@ -240,23 +249,37 @@ export default function SettingsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="licenseKey">MaxMind License-Key</Label>
-                <div className="flex gap-2">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="accountId">MaxMind Account-ID</Label>
                   <Input
-                    id="licenseKey"
-                    type="password"
-                    placeholder="xxxxxxxxxxxxxxxx"
-                    value={licenseKey}
-                    onChange={(e) => setLicenseKey(e.target.value)}
+                    id="accountId"
+                    type="text"
+                    placeholder="123456"
+                    value={accountId}
+                    onChange={(e) => setAccountId(e.target.value)}
                     disabled={installingGeo}
                   />
-                  <Button onClick={installGeo} disabled={installingGeo || !licenseKey.trim()}>
-                    {installingGeo ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                    Installieren
-                  </Button>
+                  <p className="text-[11px] text-muted-foreground">Empfohlen — neue License-Keys brauchen die Account-ID (Basic Auth).</p>
                 </div>
-                <p className="text-[11px] text-muted-foreground">Lädt GeoLite2-Country.mmdb herunter und aktiviert Geo-Lookup.</p>
+                <div className="space-y-2">
+                  <Label htmlFor="licenseKey">MaxMind License-Key</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="licenseKey"
+                      type="password"
+                      placeholder="xxxxxxxxxxxxxxxx"
+                      value={licenseKey}
+                      onChange={(e) => setLicenseKey(e.target.value)}
+                      disabled={installingGeo}
+                    />
+                    <Button onClick={installGeo} disabled={installingGeo || !licenseKey.trim()}>
+                      {installingGeo ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                      Installieren
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Lädt GeoLite2-Country.mmdb herunter. EULA muss im MaxMind-Account akzeptiert sein.</p>
+                </div>
               </div>
             )}
             {geoMsg && <p className="text-xs text-muted-foreground">{geoMsg}</p>}
