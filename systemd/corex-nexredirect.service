@@ -1,0 +1,20 @@
+[Unit]
+Description=CoreX NexRedirect
+After=network.target
+
+[Service]
+Type=simple
+User=nexredirect
+WorkingDirectory=/opt/corex-nexredirect
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=NEXREDIRECT_DATA_DIR=/var/lib/corex-nexredirect
+Environment=NEXREDIRECT_GEOIP_PATH=/var/lib/corex-nexredirect/GeoLite2-Country.mmdb
+Environment=NEXREDIRECT_CADDYFILE=/etc/caddy/Caddyfile
+Environment=NEXREDIRECT_UPDATE_SCRIPT=/opt/corex-nexredirect/scripts/update.sh
+ExecStart=/opt/corex-nexredirect/node_modules/.bin/tsx /opt/corex-nexredirect/server.ts
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
