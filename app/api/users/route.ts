@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getDb, logAudit, type UserRow } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { validatePassword } from "@/lib/passwords";
 
 export async function GET() {
   const u = await requireAdmin();
@@ -13,7 +14,7 @@ export async function GET() {
 
 const createSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase().trim()),
-  password: z.string().min(8),
+  password: z.string().min(10),
   role: z.enum(["admin", "user"]).default("user"),
 });
 
@@ -29,6 +30,8 @@ export async function POST(req: Request) {
   if (db.prepare("SELECT id FROM users WHERE email = ?").get(parsed.data.email)) {
     return NextResponse.json({ error: "email_exists" }, { status: 409 });
   }
+  const pwdCheck = await validatePassword(parsed.data.password);
+  if (!pwdCheck.ok) return NextResponse.json({ error: "weak_password", reason: pwdCheck.reason }, { status: 400 });
   const hash = await bcrypt.hash(parsed.data.password, 12);
   const result = db.prepare("INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, ?, ?)").run(parsed.data.email, hash, parsed.data.role, Date.now());
   const row = db.prepare("SELECT id, email, role, created_at FROM users WHERE id = ?").get(result.lastInsertRowid) as UserRow;

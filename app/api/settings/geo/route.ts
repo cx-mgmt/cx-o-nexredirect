@@ -41,6 +41,7 @@ async function tryDownload(url: string, headers: Record<string, string> = {}): P
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") return NextResponse.json({ error: "forbidden", code: "admin_required" }, { status: 403 });
 
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
 export async function DELETE() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") return NextResponse.json({ error: "forbidden", code: "admin_required" }, { status: 403 });
   await fs.unlink(MMDB_PATH).catch(() => {});
   resetGeoReader();
   return NextResponse.json({ ok: true });

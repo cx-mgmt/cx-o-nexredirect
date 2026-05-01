@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getDb, type ApiTokenRow } from "./db";
+import { checkLimit } from "./rate-limit";
 
 export type Scope = "read:domains" | "write:domains" | "read:analytics" | "read:hits";
 export const ALL_SCOPES: Scope[] = ["read:domains", "write:domains", "read:analytics", "read:hits"];
@@ -43,7 +44,16 @@ export function authenticateToken(req: Request): AuthedToken | null {
 
 export function requireScope(req: Request, scope: Scope): AuthedToken | NextResponse {
   const t = authenticateToken(req);
-  if (!t) return NextResponse.json({ error: "unauthorized", code: "no_token" }, { status: 401 });
+  if (!t) {
+    // Rate-limit by IP for unauth: 30 attempts / minute
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "anon";
+    const rl = checkLimit(`api:unauth:${ip}`, 30, 60_000);
+    if (!rl.allowed) return NextResponse.json({ error: "rate_limited", retry_after: rl.retryAfterSec }, { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 60) } });
+    return NextResponse.json({ error: "unauthorized", code: "no_token" }, { status: 401 });
+  }
+  // Per-token rate-limit: 60 / minute
+  const rl = checkLimit(`api:token:${t.id}`, 60, 60_000);
+  if (!rl.allowed) return NextResponse.json({ error: "rate_limited", retry_after: rl.retryAfterSec }, { status: 429, headers: { "Retry-After": String(rl.retryAfterSec ?? 60) } });
   if (!t.scopes.includes(scope)) {
     return NextResponse.json({ error: "forbidden", code: "missing_scope", required: scope }, { status: 403 });
   }

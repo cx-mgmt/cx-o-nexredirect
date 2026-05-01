@@ -3,10 +3,11 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getDb, logAudit, type UserRow } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
+import { validatePassword } from "@/lib/passwords";
 
 const updateSchema = z.object({
   role: z.enum(["admin", "user"]).optional(),
-  password: z.string().min(8).optional(),
+  password: z.string().min(10).optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +35,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     values.push(parsed.data.role);
   }
   if (parsed.data.password) {
+    const pwdCheck = await validatePassword(parsed.data.password);
+    if (!pwdCheck.ok) return NextResponse.json({ error: "weak_password", reason: pwdCheck.reason }, { status: 400 });
     const hash = await bcrypt.hash(parsed.data.password, 12);
     fields.push("password_hash = ?");
     values.push(hash);

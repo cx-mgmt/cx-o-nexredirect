@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getDb, isSetupComplete, setSetting, getDailySalt } from "@/lib/db";
+import { validatePassword } from "@/lib/passwords";
 
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: z.string().min(10),
   baseDomain: z.string().optional(),
 });
 
@@ -21,6 +22,10 @@ export async function POST(req: Request) {
   }
 
   const { email, password, baseDomain } = parsed.data;
+
+  const pwdCheck = await validatePassword(password);
+  if (!pwdCheck.ok) return NextResponse.json({ error: "weak_password", reason: pwdCheck.reason }, { status: 400 });
+
   const password_hash = await bcrypt.hash(password, 12);
   const now = Date.now();
 

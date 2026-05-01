@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PasswordField } from "@/components/PasswordField";
 
 type U = { id: number; email: string; role: "admin" | "user"; created_at: number };
 
@@ -18,11 +19,15 @@ export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+  const [pwdValid, setPwdValid] = useState(false);
   const [role, setRole] = useState<"admin" | "user">("user");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [pwdOpen, setPwdOpen] = useState<U | null>(null);
   const [newPwd, setNewPwd] = useState("");
+  const [newPwd2, setNewPwd2] = useState("");
+  const [newPwdValid, setNewPwdValid] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -36,13 +41,15 @@ export default function UsersPage() {
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
+    if (password !== password2) { setErr("Passwörter stimmen nicht überein."); return; }
+    if (!pwdValid) { setErr("Passwort erfüllt die Anforderungen nicht."); return; }
     setBusy(true);
     setErr("");
     try {
       const r = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, role }) });
       const d = await r.json();
-      if (!r.ok) { setErr(d.error || "Fehler"); return; }
-      setEmail(""); setPassword(""); setRole("user");
+      if (!r.ok) { setErr(d.reason || d.error || "Fehler"); return; }
+      setEmail(""); setPassword(""); setPassword2(""); setRole("user");
       setOpen(false);
       load();
     } finally { setBusy(false); }
@@ -57,11 +64,12 @@ export default function UsersPage() {
     load();
   }
 
-  async function setPassword2(u: U, pwd: string) {
-    const r = await fetch(`/api/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pwd }) });
-    if (!r.ok) { alert("Fehler"); return; }
-    setPwdOpen(null);
-    setNewPwd("");
+  async function changePassword(u: U) {
+    if (newPwd !== newPwd2) { alert("Passwörter stimmen nicht überein."); return; }
+    if (!newPwdValid) { alert("Passwort erfüllt die Anforderungen nicht."); return; }
+    const r = await fetch(`/api/users/${u.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: newPwd }) });
+    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.reason || d.error || "Fehler"); return; }
+    setPwdOpen(null); setNewPwd(""); setNewPwd2("");
   }
 
   async function del(u: U) {
@@ -96,7 +104,12 @@ export default function UsersPage() {
               <DialogHeader><DialogTitle>Neuer Benutzer</DialogTitle><DialogDescription>Account anlegen.</DialogDescription></DialogHeader>
               <form onSubmit={create} className="space-y-3">
                 <div className="space-y-1"><Label>E-Mail</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                <div className="space-y-1"><Label>Passwort (min 8)</Label><Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                <PasswordField value={password} onChange={setPassword} onValidationChange={(v) => setPwdValid(!!v.ok)} />
+                <div className="space-y-1">
+                  <Label htmlFor="pw2">Passwort wiederholen</Label>
+                  <Input id="pw2" type="password" required value={password2} onChange={(e) => setPassword2(e.target.value)} />
+                  {password2 && password !== password2 && <p className="text-[11px] text-amber-400">Passwörter stimmen nicht überein.</p>}
+                </div>
                 <div className="space-y-1">
                   <Label>Rolle</Label>
                   <select value={role} onChange={(e) => setRole(e.target.value as "admin" | "user")} className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 text-sm text-zinc-100">
@@ -162,13 +175,20 @@ export default function UsersPage() {
         )}
       </div>
 
-      <Dialog open={!!pwdOpen} onOpenChange={(v) => { if (!v) { setPwdOpen(null); setNewPwd(""); } }}>
+      <Dialog open={!!pwdOpen} onOpenChange={(v) => { if (!v) { setPwdOpen(null); setNewPwd(""); setNewPwd2(""); } }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Passwort ändern</DialogTitle><DialogDescription>{pwdOpen?.email}</DialogDescription></DialogHeader>
-          <div className="space-y-1"><Label>Neues Passwort (min 8)</Label><Input type="password" minLength={8} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} /></div>
+          <div className="space-y-3">
+            <PasswordField value={newPwd} onChange={setNewPwd} onValidationChange={(v) => setNewPwdValid(!!v.ok)} label="Neues Passwort" id="newpwd" />
+            <div className="space-y-1">
+              <Label htmlFor="newpwd2">Wiederholen</Label>
+              <Input id="newpwd2" type="password" value={newPwd2} onChange={(e) => setNewPwd2(e.target.value)} />
+              {newPwd2 && newPwd !== newPwd2 && <p className="text-[11px] text-amber-400">Passwörter stimmen nicht überein.</p>}
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setPwdOpen(null); setNewPwd(""); }}>Abbrechen</Button>
-            <Button onClick={() => pwdOpen && setPassword2(pwdOpen, newPwd)} disabled={newPwd.length < 8}>Speichern</Button>
+            <Button variant="outline" onClick={() => { setPwdOpen(null); setNewPwd(""); setNewPwd2(""); }}>Abbrechen</Button>
+            <Button onClick={() => pwdOpen && changePassword(pwdOpen)} disabled={!newPwdValid || newPwd !== newPwd2}>Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

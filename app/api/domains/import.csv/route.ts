@@ -39,6 +39,7 @@ function parseCsv(text: string): Record<string, string>[] {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") return NextResponse.json({ error: "forbidden", code: "admin_required" }, { status: 403 });
 
   const text = await req.text();
   const rows = parseCsv(text);

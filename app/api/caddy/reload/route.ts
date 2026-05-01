@@ -6,6 +6,7 @@ import { reloadCaddy, buildCaddyfile } from "@/lib/caddy";
 export async function POST() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") return NextResponse.json({ error: "forbidden", code: "admin_required" }, { status: 403 });
   const result = await reloadCaddy();
   return NextResponse.json(result);
 }
