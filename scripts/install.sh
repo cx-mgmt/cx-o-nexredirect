@@ -60,6 +60,7 @@ else
 fi
 
 mkdir -p "$DATA_DIR"
+chmod +x "$INSTALL_DIR/scripts/"*.sh
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR" "$DATA_DIR"
 
 echo "==> Dependencies installieren"
