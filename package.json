@@ -1,6 +1,6 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "license": "MIT",
   "scripts": {
     "dev": "tsx watch server.ts",
