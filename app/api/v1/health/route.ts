@@ -23,7 +23,10 @@ export async function GET() {
   `).get() as { total: number; active: number; pending: number; errored: number };
 
   const hits24h = (db.prepare("SELECT COUNT(*) AS n FROM hits WHERE ts > ?").get(since24h) as { n: number }).n;
-  const blocklist = (db.prepare("SELECT COUNT(*) AS n FROM ip_blocklist WHERE expires_at > ?").get(Date.now()) as { n: number }).n;
+  let blocklist = 0;
+  try {
+    blocklist = (db.prepare("SELECT COUNT(*) AS n FROM ip_blocklist WHERE expires_at > ?").get(Date.now()) as { n: number }).n;
+  } catch {}
 
   return NextResponse.json({
     ok: true,

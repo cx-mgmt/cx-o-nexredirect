@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2, Mail, Send } from "lucide-react";
+import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2, Mail, Send, Pencil, Server, Bell } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Settings = {
   base_domain: string | null;
@@ -26,23 +27,29 @@ type UpdateStatus = {
   auto_update: boolean;
 };
 
+type Smtp = {
+  smtp_host: string;
+  smtp_port: string;
+  smtp_user: string;
+  smtp_password: string;
+  smtp_from: string;
+  smtp_secure: string;
+};
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [geo, setGeo] = useState<{ available: boolean; path: string } | null>(null);
-  const [licenseKey, setLicenseKey] = useState("");
-  const [accountId, setAccountId] = useState("");
-  const [installingGeo, setInstallingGeo] = useState(false);
-  const [geoMsg, setGeoMsg] = useState("");
-  const [smtp, setSmtp] = useState<{ smtp_host: string; smtp_port: string; smtp_user: string; smtp_password: string; smtp_from: string; smtp_secure: string }>({ smtp_host: "", smtp_port: "587", smtp_user: "", smtp_password: "", smtp_from: "", smtp_secure: "false" });
-  const [smtpSaving, setSmtpSaving] = useState(false);
-  const [smtpTestTo, setSmtpTestTo] = useState("");
-  const [smtpTestBusy, setSmtpTestBusy] = useState(false);
-  const [smtpTestMsg, setSmtpTestMsg] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [smtp, setSmtp] = useState<Smtp | null>(null);
+
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [updateMsg, setUpdateMsg] = useState("");
+
+  const [serverOpen, setServerOpen] = useState(false);
+  const [smtpOpen, setSmtpOpen] = useState(false);
+  const [geoOpen, setGeoOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
 
   async function load() {
     const [s, u, g, m] = await Promise.all([
@@ -63,71 +70,11 @@ export default function SettingsPage() {
       smtp_secure: m.smtp_secure || "false",
     });
   }
-
-  async function saveSmtp() {
-    setSmtpSaving(true);
-    try {
-      await fetch("/api/settings/smtp", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(smtp) });
-    } finally { setSmtpSaving(false); }
-  }
-
-  async function sendTestMail() {
-    setSmtpTestBusy(true);
-    setSmtpTestMsg("");
-    try {
-      const r = await fetch("/api/settings/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: smtpTestTo || undefined }) });
-      const d = await r.json();
-      setSmtpTestMsg(d.ok ? "Test-Mail verschickt." : `Fehler: ${d.error}`);
-    } finally { setSmtpTestBusy(false); }
-  }
   useEffect(() => { load(); }, []);
 
-  async function installGeo() {
-    if (!licenseKey.trim()) return;
-    setInstallingGeo(true);
-    setGeoMsg("");
-    try {
-      const r = await fetch("/api/settings/geo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          license_key: licenseKey.trim(),
-          ...(accountId.trim() ? { account_id: accountId.trim() } : {}),
-        }),
-      });
-      const d = await r.json();
-      if (r.ok) {
-        setGeoMsg("GeoLite2-DB installiert.");
-        setLicenseKey("");
-        setAccountId("");
-        load();
-      } else {
-        const parts = [`Fehler: ${d.error || "Download fehlgeschlagen"}`];
-        if (d.status) parts.push(`HTTP ${d.status}`);
-        if (d.detail) parts.push(d.detail);
-        if (d.hint) parts.push(`→ ${d.hint}`);
-        setGeoMsg(parts.join(" — "));
-      }
-    } finally {
-      setInstallingGeo(false);
-    }
-  }
-
-  async function removeGeo() {
-    if (!confirm("GeoIP-DB entfernen? Geo-Lookup wird deaktiviert.")) return;
-    await fetch("/api/settings/geo", { method: "DELETE" });
+  async function saveSettings(patch: Partial<Settings>) {
+    await fetch("/api/settings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     load();
-  }
-
-  async function save(patch: Partial<Settings>) {
-    setSaving(true);
-    await fetch("/api/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
-    });
-    setSettings((s) => s ? { ...s, ...patch } : s);
-    setSaving(false);
   }
 
   async function check() {
@@ -139,287 +86,368 @@ export default function SettingsPage() {
 
   async function waitForServerBack() {
     for (let i = 0; i < 60; i++) {
-      try {
-        const r = await fetch("/api/v1/health", { cache: "no-store" });
-        if (r.ok) return true;
-      } catch {}
+      try { const r = await fetch("/api/v1/health", { cache: "no-store" }); if (r.ok) return true; } catch {}
       await new Promise((res) => setTimeout(res, 1000));
     }
     return false;
   }
 
   async function applyNow() {
-    if (!confirm(`Update auf ${status?.latest} jetzt installieren?\n\nDer Server wird neu gestartet (kurze Downtime der Admin-UI). Redirects bleiben über Caddy aktiv.`)) return;
+    if (!confirm(`Update auf ${status?.latest} jetzt installieren?\n\nServer wird neu gestartet (kurze Downtime). Redirects bleiben über Caddy aktiv.`)) return;
     setApplying(true);
-    setMsg("Update läuft — bitte warten...");
-
-    // Fallback: reload after 90s no matter what (in case fetch/poll get stuck)
+    setUpdateMsg("Update läuft — bitte warten...");
     const fallbackReload = setTimeout(() => window.location.reload(), 90_000);
-
     try {
       let d: { ok?: boolean; from?: string; to?: string; error?: string } = {};
       try {
         const r = await fetch("/api/update/apply", { method: "POST" });
         try { d = await r.json(); } catch {}
         if (!r.ok && !d.error) d.error = r.statusText;
-      } catch (e) {
-        // Connection drop = server probably restarted mid-response (legacy update.sh)
-        d.error = e instanceof Error ? e.message : "connection_lost";
-      }
+      } catch (e) { d.error = e instanceof Error ? e.message : "connection_lost"; }
 
-      if (d.error === "no_update") {
-        setMsg("Bereits auf aktueller Version.");
-        clearTimeout(fallbackReload);
-        await fetch("/api/update/check?force=1").catch(() => {});
-        load();
-        setApplying(false);
-        return;
-      }
+      if (d.error === "no_update") { setUpdateMsg("Bereits aktuell."); clearTimeout(fallbackReload); load(); setApplying(false); return; }
+      if (d.error && !d.to) { setUpdateMsg(`Fehler: ${d.error}`); clearTimeout(fallbackReload); setApplying(false); return; }
 
-      if (d.error && !d.to) {
-        setMsg(`Fehler: ${d.error}`);
-        clearTimeout(fallbackReload);
-        setApplying(false);
-        return;
-      }
-
-      setMsg(d.to ? `Update gezogen (${d.from} → ${d.to}). Server startet neu...` : "Server startet neu...");
+      setUpdateMsg(d.to ? `Update gezogen (${d.from} → ${d.to}). Server startet neu...` : "Server startet neu...");
       await new Promise((res) => setTimeout(res, 3000));
-      const back = await waitForServerBack();
-      setMsg(back ? "Server zurück. Lade Seite neu..." : "Restart dauert ungewöhnlich lang — lade trotzdem neu.");
+      await waitForServerBack();
       clearTimeout(fallbackReload);
       window.location.reload();
     } catch (e) {
-      setMsg(`Fehler: ${e instanceof Error ? e.message : String(e)} — lade in 5s neu.`);
+      setUpdateMsg(`Fehler: ${e instanceof Error ? e.message : String(e)}`);
       setTimeout(() => window.location.reload(), 5000);
     }
   }
 
-  if (!settings || !status || !geo) {
+  if (!settings || !status || !geo || !smtp) {
     return <div className="flex justify-center p-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
   return (
     <div>
-      <PageHeader title="Einstellungen" description="Server-Konfiguration und Updates" />
+      <PageHeader title="Einstellungen" description="Server-Konfiguration, Updates, Mail, Geo, Benachrichtigungen" />
 
-      <div className="space-y-4 p-8">
+      <div className="grid grid-cols-1 gap-4 p-8 lg:grid-cols-2">
+        {/* Updates */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              Updates {status.update_available && <Badge variant="green">Verfügbar</Badge>}
+              <ArrowUpCircle className="h-4 w-4" />
+              Updates
+              {status.update_available && <Badge variant="green">Verfügbar</Badge>}
+              {!status.update_available && <Badge variant="zinc">Aktuell</Badge>}
             </CardTitle>
             <CardDescription>
-              Aktuelle Version <span className="font-mono">{status.current}</span>
+              Aktuell <span className="font-mono">{status.current}</span>
               {status.latest && <> • Neueste <span className="font-mono">{status.latest}</span></>}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <CardContent className="space-y-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={check} variant="outline" size="sm" disabled={checking || applying}>
                 {checking ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCcw className="mr-2 h-3 w-3" />}
-                Jetzt prüfen
+                Prüfen
               </Button>
               {status.update_available && !applying && (
-                <Button onClick={applyNow} size="sm" disabled={applying}>
+                <Button onClick={applyNow} size="sm">
                   <ArrowUpCircle className="mr-2 h-3 w-3" />
-                  Update {status.latest} installieren
+                  v{status.latest} installieren
                 </Button>
               )}
-              {!status.update_available && !applying && (
-                <span className="text-xs text-green-400">✓ Aktuelle Version</span>
-              )}
-              {status.release_url && <a href={status.release_url} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline">Release-Notes →</a>}
+              {status.release_url && <a href={status.release_url} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline self-center">Notes →</a>}
             </div>
             {applying && (
               <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>{msg || "Update läuft..."}</span>
+                <Loader2 className="h-3 w-3 animate-spin" /><span>{updateMsg}</span>
               </div>
             )}
-            <div className="space-y-2 pt-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={settings.update_auto === "true"} onChange={(e) => save({ update_auto: e.target.checked ? "true" : "false" })} disabled={saving} />
-                Auto-Update aktivieren <span className="text-xs text-muted-foreground">(Updates automatisch beim Check installieren)</span>
+            <div className="space-y-1 pt-1">
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={settings.update_auto === "true"} onChange={(e) => saveSettings({ update_auto: e.target.checked ? "true" : "false" })} />
+                Auto-Update
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={settings.update_include_prereleases === "true"} onChange={(e) => save({ update_include_prereleases: e.target.checked ? "true" : "false" })} disabled={saving} />
-                Pre-Releases einbeziehen
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={settings.update_include_prereleases === "true"} onChange={(e) => saveSettings({ update_include_prereleases: e.target.checked ? "true" : "false" })} />
+                Pre-Releases
               </label>
             </div>
-            {msg && !applying && <p className="text-xs text-muted-foreground">{msg}</p>}
-            {status.last_check && <p className="text-xs text-muted-foreground">Letzte Prüfung: {new Date(status.last_check).toLocaleString("de-DE")}</p>}
           </CardContent>
         </Card>
 
+        {/* Server */}
         <Card>
           <CardHeader>
-            <CardTitle>Server</CardTitle>
-            <CardDescription>Allgemeine Konfiguration</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Server className="h-4 w-4" />Server</CardTitle>
+            <CardDescription>Admin-Domain & ACME-Email</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="baseDomain">Admin-Domain</Label>
-              <Input
-                id="baseDomain"
-                placeholder="admin.beispiel.de"
-                defaultValue={settings.base_domain ?? ""}
-                onBlur={(e) => save({ base_domain: e.target.value.trim() })}
-              />
-              <p className="text-[11px] text-muted-foreground">Optional. Bestimmt unter welcher Domain die Admin-UI erreichbar ist.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="adminEmail">Admin-E-Mail (Let&apos;s Encrypt)</Label>
-              <Input
-                id="adminEmail"
-                type="email"
-                placeholder="admin@beispiel.de"
-                defaultValue={settings.admin_email ?? ""}
-                onBlur={(e) => save({ admin_email: e.target.value.trim() })}
-              />
-              <p className="text-[11px] text-muted-foreground">Wird von Caddy für ACME/Let&apos;s Encrypt benötigt.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="retention">Hit-Retention (Tage)</Label>
-              <Input
-                id="retention"
-                type="number"
-                min={0}
-                placeholder="365"
-                defaultValue={settings.hits_retention_days ?? "365"}
-                onBlur={(e) => save({ hits_retention_days: e.target.value || "365" })}
-              />
-              <p className="text-[11px] text-muted-foreground">Hits älter als diese Anzahl Tage werden täglich gelöscht. 0 = nie löschen.</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="webhook">Webhook-URL</Label>
-              <Input
-                id="webhook"
-                type="url"
-                placeholder="https://hooks.example.com/..."
-                defaultValue={settings.webhook_url ?? ""}
-                onBlur={(e) => save({ webhook_url: e.target.value.trim() })}
-              />
-              <p className="text-[11px] text-muted-foreground">POST mit JSON bei Domain-Verify-Fail / Update-Available. Leer = aus.</p>
-            </div>
+          <CardContent className="space-y-2 text-sm">
+            <Row k="Admin-Domain">{settings.base_domain ? <span className="font-mono">{settings.base_domain}</span> : <em className="text-muted-foreground">— Server-IP —</em>}</Row>
+            <Row k="Admin-E-Mail">{settings.admin_email || <em className="text-muted-foreground">—</em>}</Row>
+            <Button onClick={() => setServerOpen(true)} variant="outline" size="sm" className="w-full">
+              <Pencil className="mr-2 h-3 w-3" />Bearbeiten
+            </Button>
           </CardContent>
         </Card>
 
+        {/* SMTP */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Globe2 className="h-4 w-4" />
-              GeoIP-Tracking
-              {geo.available
-                ? <Badge variant="green"><CheckCircle2 className="mr-1 h-3 w-3" />aktiv</Badge>
-                : <Badge variant="zinc">deaktiviert</Badge>}
-            </CardTitle>
-            <CardDescription>
-              MaxMind GeoLite2-Country für Land-Auflösung pro Hit. Lizenz-Key kostenlos unter <a href="https://www.maxmind.com/en/geolite2/signup" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">maxmind.com</a> generieren.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {geo.available ? (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">DB-Pfad: <span className="font-mono">{geo.path}</span></p>
-                <Button onClick={removeGeo} variant="destructive" size="sm">
-                  <Trash2 className="mr-2 h-3 w-3" />Entfernen
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="accountId">MaxMind Account-ID</Label>
-                  <Input
-                    id="accountId"
-                    type="text"
-                    placeholder="123456"
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                    disabled={installingGeo}
-                  />
-                  <p className="text-[11px] text-muted-foreground">Empfohlen — neue License-Keys brauchen die Account-ID (Basic Auth).</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="licenseKey">MaxMind License-Key</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="licenseKey"
-                      type="password"
-                      placeholder="xxxxxxxxxxxxxxxx"
-                      value={licenseKey}
-                      onChange={(e) => setLicenseKey(e.target.value)}
-                      disabled={installingGeo}
-                    />
-                    <Button onClick={installGeo} disabled={installingGeo || !licenseKey.trim()}>
-                      {installingGeo ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                      Installieren
-                    </Button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Lädt GeoLite2-Country.mmdb herunter. EULA muss im MaxMind-Account akzeptiert sein.</p>
-                </div>
-              </div>
-            )}
-            {geoMsg && <p className="text-xs text-muted-foreground">{geoMsg}</p>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-4 w-4" />SMTP / E-Mail
+              <Mail className="h-4 w-4" />SMTP
               {smtp.smtp_host
                 ? <Badge variant="green"><CheckCircle2 className="mr-1 h-3 w-3" />konfiguriert</Badge>
-                : <Badge variant="zinc">nicht konfiguriert</Badge>}
+                : <Badge variant="zinc">aus</Badge>}
             </CardTitle>
-            <CardDescription>Für Passwort-Reset-Mails. Postfix/Sendgrid/Mailgun/Hetzner-SMTP — alles was speaks SMTP.</CardDescription>
+            <CardDescription>Mail-Versand für Passwort-Reset</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">SMTP-Host</Label>
-                <Input value={smtp.smtp_host} onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })} placeholder="smtp.example.com" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Port</Label>
-                <Input type="number" value={smtp.smtp_port} onChange={(e) => setSmtp({ ...smtp, smtp_port: e.target.value })} placeholder="587" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Username</Label>
-                <Input value={smtp.smtp_user} onChange={(e) => setSmtp({ ...smtp, smtp_user: e.target.value })} autoComplete="off" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Passwort</Label>
-                <Input type="password" value={smtp.smtp_password} onChange={(e) => setSmtp({ ...smtp, smtp_password: e.target.value })} autoComplete="new-password" placeholder={smtp.smtp_password === "***" ? "(unverändert)" : ""} />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">From-Adresse</Label>
-              <Input value={smtp.smtp_from} onChange={(e) => setSmtp({ ...smtp, smtp_from: e.target.value })} placeholder='"NexRedirect" <noreply@example.com>' />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={smtp.smtp_secure === "true"} onChange={(e) => setSmtp({ ...smtp, smtp_secure: e.target.checked ? "true" : "false" })} />
-              TLS direkt (Port 465). Sonst STARTTLS auf 587.
-            </label>
-            <div className="flex gap-2">
-              <Button onClick={saveSmtp} size="sm" disabled={smtpSaving}>
-                {smtpSaving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                Speichern
-              </Button>
-              <div className="flex flex-1 gap-2">
-                <Input placeholder="Test-Empfänger (leer = eigene)" value={smtpTestTo} onChange={(e) => setSmtpTestTo(e.target.value)} />
-                <Button onClick={sendTestMail} variant="outline" size="sm" disabled={smtpTestBusy || !smtp.smtp_host}>
-                  {smtpTestBusy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Send className="mr-2 h-3 w-3" />}
-                  Test
-                </Button>
-              </div>
-            </div>
-            {smtpTestMsg && <p className="text-xs text-muted-foreground">{smtpTestMsg}</p>}
+          <CardContent className="space-y-2 text-sm">
+            {smtp.smtp_host ? (
+              <>
+                <Row k="Host"><span className="font-mono text-xs">{smtp.smtp_host}:{smtp.smtp_port}</span></Row>
+                <Row k="Absender"><span className="font-mono text-xs">{smtp.smtp_from || smtp.smtp_user || "—"}</span></Row>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">Ohne SMTP funktioniert "Passwort vergessen" nicht.</p>
+            )}
+            <Button onClick={() => setSmtpOpen(true)} variant="outline" size="sm" className="w-full">
+              <Pencil className="mr-2 h-3 w-3" />{smtp.smtp_host ? "Bearbeiten" : "Konfigurieren"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* GeoIP */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe2 className="h-4 w-4" />GeoIP
+              {geo.available
+                ? <Badge variant="green"><CheckCircle2 className="mr-1 h-3 w-3" />aktiv</Badge>
+                : <Badge variant="zinc">aus</Badge>}
+            </CardTitle>
+            <CardDescription>Land-Auflösung pro Hit (MaxMind GeoLite2)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {geo.available ? (
+              <Row k="DB"><span className="font-mono text-[10px]">{geo.path.split("/").pop()}</span></Row>
+            ) : (
+              <p className="text-xs text-muted-foreground">Hit-Country bleibt leer ohne GeoIP-DB.</p>
+            )}
+            <Button onClick={() => setGeoOpen(true)} variant="outline" size="sm" className="w-full">
+              <Pencil className="mr-2 h-3 w-3" />{geo.available ? "Verwalten" : "Aktivieren"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Benachrichtigungen / Retention */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Bell className="h-4 w-4" />Benachrichtigungen & Datenhaltung</CardTitle>
+            <CardDescription>Webhook-URL und Hit-Retention</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Row k="Hit-Retention">{settings.hits_retention_days || "365"} Tage</Row>
+            <Row k="Webhook-URL">{settings.webhook_url ? <span className="font-mono text-xs">{settings.webhook_url}</span> : <em className="text-muted-foreground">—</em>}</Row>
+            <Button onClick={() => setNotifyOpen(true)} variant="outline" size="sm">
+              <Pencil className="mr-2 h-3 w-3" />Bearbeiten
+            </Button>
           </CardContent>
         </Card>
       </div>
+
+      <ServerDialog open={serverOpen} onClose={() => setServerOpen(false)} settings={settings} onSave={saveSettings} />
+      <SmtpDialog open={smtpOpen} onClose={() => setSmtpOpen(false)} initial={smtp} onSaved={load} />
+      <GeoDialog open={geoOpen} onClose={() => setGeoOpen(false)} status={geo} onChanged={load} />
+      <NotifyDialog open={notifyOpen} onClose={() => setNotifyOpen(false)} settings={settings} onSave={saveSettings} />
     </div>
+  );
+}
+
+function Row({ k, children }: { k: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-zinc-800/40 py-1.5 last:border-0">
+      <span className="text-xs text-muted-foreground">{k}</span>
+      <span className="text-right">{children}</span>
+    </div>
+  );
+}
+
+function ServerDialog({ open, onClose, settings, onSave }: { open: boolean; onClose: () => void; settings: Settings; onSave: (p: Partial<Settings>) => Promise<void> }) {
+  const [base, setBase] = useState(settings.base_domain ?? "");
+  const [email, setEmail] = useState(settings.admin_email ?? "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) { setBase(settings.base_domain ?? ""); setEmail(settings.admin_email ?? ""); } }, [open, settings]);
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Server</DialogTitle><DialogDescription>Admin-Domain für die UI und ACME-Email für Let&apos;s Encrypt.</DialogDescription></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1"><Label>Admin-Domain</Label><Input value={base} onChange={(e) => setBase(e.target.value)} placeholder="admin.beispiel.de" /></div>
+          <div className="space-y-1"><Label>Admin-E-Mail</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@beispiel.de" /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Abbrechen</Button>
+          <Button onClick={async () => { setBusy(true); await onSave({ base_domain: base.trim(), admin_email: email.trim() }); setBusy(false); onClose(); }} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}Speichern
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SmtpDialog({ open, onClose, initial, onSaved }: { open: boolean; onClose: () => void; initial: Smtp; onSaved: () => void }) {
+  const [s, setS] = useState<Smtp>(initial);
+  const [busy, setBusy] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
+  const [testMsg, setTestMsg] = useState("");
+  useEffect(() => { if (open) { setS(initial); setTestMsg(""); } }, [open, initial]);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await fetch("/api/settings/smtp", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+      onSaved();
+      onClose();
+    } finally { setBusy(false); }
+  }
+
+  async function test() {
+    setTestBusy(true); setTestMsg("");
+    try {
+      // Save first, then test
+      await fetch("/api/settings/smtp", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+      const r = await fetch("/api/settings/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: testTo || undefined }) });
+      const d = await r.json();
+      setTestMsg(d.ok ? "✓ Test-Mail verschickt." : `Fehler: ${d.error}`);
+    } finally { setTestBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>SMTP konfigurieren</DialogTitle><DialogDescription>Mail-Server für Passwort-Reset und Benachrichtigungen.</DialogDescription></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2 space-y-1"><Label className="text-xs">Host</Label><Input value={s.smtp_host} onChange={(e) => setS({ ...s, smtp_host: e.target.value })} placeholder="smtp.example.com" /></div>
+            <div className="space-y-1"><Label className="text-xs">Port</Label><Input type="number" value={s.smtp_port} onChange={(e) => setS({ ...s, smtp_port: e.target.value })} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1"><Label className="text-xs">Username</Label><Input value={s.smtp_user} onChange={(e) => setS({ ...s, smtp_user: e.target.value })} autoComplete="off" /></div>
+            <div className="space-y-1"><Label className="text-xs">Passwort</Label><Input type="password" value={s.smtp_password} onChange={(e) => setS({ ...s, smtp_password: e.target.value })} autoComplete="new-password" placeholder={s.smtp_password === "***" ? "(unverändert)" : ""} /></div>
+          </div>
+          <div className="space-y-1"><Label className="text-xs">From-Adresse</Label><Input value={s.smtp_from} onChange={(e) => setS({ ...s, smtp_from: e.target.value })} placeholder='"NexRedirect" <noreply@example.com>' /></div>
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={s.smtp_secure === "true"} onChange={(e) => setS({ ...s, smtp_secure: e.target.checked ? "true" : "false" })} />
+            TLS direkt (Port 465). Sonst STARTTLS.
+          </label>
+          <div className="rounded-md border bg-zinc-900/40 p-3 space-y-2">
+            <p className="text-[11px] text-muted-foreground">Test-Mail an:</p>
+            <div className="flex gap-2">
+              <Input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="(leer = eigene Email)" />
+              <Button onClick={test} variant="outline" size="sm" disabled={testBusy || !s.smtp_host}>
+                {testBusy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Send className="mr-2 h-3 w-3" />}Test
+              </Button>
+            </div>
+            {testMsg && <p className="text-xs">{testMsg}</p>}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Schließen</Button>
+          <Button onClick={save} disabled={busy}>{busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}Speichern</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function GeoDialog({ open, onClose, status, onChanged }: { open: boolean; onClose: () => void; status: { available: boolean; path: string }; onChanged: () => void }) {
+  const [accountId, setAccountId] = useState("");
+  const [licenseKey, setLicenseKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  async function install() {
+    if (!licenseKey.trim()) return;
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/settings/geo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ license_key: licenseKey.trim(), ...(accountId.trim() ? { account_id: accountId.trim() } : {}) }) });
+      const d = await r.json();
+      if (r.ok) { setMsg("✓ DB installiert."); setLicenseKey(""); setAccountId(""); onChanged(); setTimeout(onClose, 800); }
+      else {
+        const parts = [`Fehler: ${d.error}`];
+        if (d.status) parts.push(`HTTP ${d.status}`);
+        if (d.hint) parts.push(`→ ${d.hint}`);
+        setMsg(parts.join(" — "));
+      }
+    } finally { setBusy(false); }
+  }
+
+  async function remove() {
+    if (!confirm("GeoIP-DB entfernen? Geo-Lookup wird deaktiviert.")) return;
+    await fetch("/api/settings/geo", { method: "DELETE" });
+    onChanged();
+    onClose();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>GeoIP-Tracking</DialogTitle>
+          <DialogDescription>MaxMind GeoLite2-Country. Lizenz-Key kostenlos auf <a href="https://www.maxmind.com/en/geolite2/signup" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">maxmind.com</a>.</DialogDescription>
+        </DialogHeader>
+        {status.available ? (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">DB installiert: <span className="font-mono">{status.path}</span></p>
+            <Button onClick={remove} variant="destructive" size="sm" className="w-full">
+              <Trash2 className="mr-2 h-3 w-3" />Entfernen
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1"><Label className="text-xs">MaxMind Account-ID</Label><Input value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder="123456" /></div>
+            <div className="space-y-1"><Label className="text-xs">License-Key</Label><Input type="password" value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} /></div>
+            {msg && <p className="text-xs">{msg}</p>}
+            <Button onClick={install} disabled={busy || !licenseKey.trim()} className="w-full">
+              {busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}Installieren
+            </Button>
+          </div>
+        )}
+        <DialogFooter><Button variant="outline" onClick={onClose}>Schließen</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NotifyDialog({ open, onClose, settings, onSave }: { open: boolean; onClose: () => void; settings: Settings; onSave: (p: Partial<Settings>) => Promise<void> }) {
+  const [retention, setRetention] = useState(settings.hits_retention_days ?? "365");
+  const [webhook, setWebhook] = useState(settings.webhook_url ?? "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) { setRetention(settings.hits_retention_days ?? "365"); setWebhook(settings.webhook_url ?? ""); } }, [open, settings]);
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Benachrichtigungen & Retention</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Hit-Retention (Tage)</Label>
+            <Input type="number" min={0} value={retention} onChange={(e) => setRetention(e.target.value)} />
+            <p className="text-[11px] text-muted-foreground">Hits älter als diese Anzahl Tage werden täglich gelöscht. 0 = nie.</p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Webhook-URL</Label>
+            <Input type="url" value={webhook} onChange={(e) => setWebhook(e.target.value)} placeholder="https://hooks.example.com/..." />
+            <p className="text-[11px] text-muted-foreground">POST mit JSON bei Domain-Verify-Fail. Leer = aus.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Abbrechen</Button>
+          <Button onClick={async () => { setBusy(true); await onSave({ hits_retention_days: retention || "365", webhook_url: webhook.trim() }); setBusy(false); onClose(); }} disabled={busy}>
+            {busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}Speichern
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
