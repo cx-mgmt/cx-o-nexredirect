@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { getDb, getSetting, type DomainRow, type DomainGroupRow } from "./db";
+
+const execAsync = promisify(exec);
 
 const CADDYFILE_PATH = process.env.NEXREDIRECT_CADDYFILE || "/etc/caddy/Caddyfile";
 const CADDY_ADMIN = process.env.CADDY_ADMIN_URL || "http://localhost:2019";
@@ -62,17 +66,29 @@ export async function writeCaddyfile(): Promise<void> {
 export async function reloadCaddy(): Promise<{ ok: boolean; error?: string }> {
   try {
     await writeCaddyfile();
-    const adapt = await fetch(`${CADDY_ADMIN}/load`, {
-      method: "POST",
-      headers: { "Content-Type": "text/caddyfile" },
-      body: buildCaddyfile(),
-    });
-    if (!adapt.ok) {
-      const text = await adapt.text().catch(() => "");
-      return { ok: false, error: `Caddy load failed: ${adapt.status} ${text}` };
-    }
+  } catch (e) {
+    return { ok: false, error: `write Caddyfile failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+
+  // Try shell `caddy reload` first — it talks to admin API as caddy itself, no Origin-header issues.
+  try {
+    await execAsync(`caddy reload --config ${CADDYFILE_PATH} --address localhost:2019`, { timeout: 30_000 });
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    // Fall back to direct admin API POST (older Caddy / different admin URL).
+    try {
+      const adapt = await fetch(`${CADDY_ADMIN}/load`, {
+        method: "POST",
+        headers: { "Content-Type": "text/caddyfile", Origin: "" },
+        body: buildCaddyfile(),
+      });
+      if (!adapt.ok) {
+        const text = await adapt.text().catch(() => "");
+        return { ok: false, error: `caddy reload failed: ${e instanceof Error ? e.message : String(e)} | api fallback: ${adapt.status} ${text}` };
+      }
+      return { ok: true };
+    } catch (e2) {
+      return { ok: false, error: `caddy reload + api fallback both failed: ${e instanceof Error ? e.message : String(e)} ; ${e2 instanceof Error ? e2.message : String(e2)}` };
+    }
   }
 }
