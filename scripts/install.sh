@@ -133,6 +133,11 @@ EOF
 sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && NEXREDIRECT_DATA_DIR='$DATA_DIR' SERVER_IP='$SERVER_IP' SERVER_IPV6='$SERVER_IPV6' ./node_modules/.bin/tsx -e \"import('./lib/db').then(({setSetting})=>{if(process.env.SERVER_IP)setSetting('server_ip',process.env.SERVER_IP);if(process.env.SERVER_IPV6)setSetting('server_ipv6',process.env.SERVER_IPV6);})\"" || \
   echo "    (Server-IP konnte nicht direkt gesetzt werden — manuell via /settings nachholen.)"
 
+echo "==> CLI nach /usr/local/bin/nexredirect verlinken"
+ln -sf "$INSTALL_DIR/bin/nexredirect" /usr/local/bin/nexredirect
+chmod +x "$INSTALL_DIR/bin/nexredirect"
+apt-get install -y -qq sqlite3 >/dev/null 2>&1 || true
+
 systemctl daemon-reload
 systemctl enable caddy >/dev/null 2>&1 || true
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
@@ -141,6 +146,7 @@ systemctl enable --now corex-nexredirect
 echo ""
 echo "==> Fertig!"
 echo ""
-echo "    Setup unter: http://${SERVER_IP}/setup"
-echo "    Logs:        journalctl -u corex-nexredirect -f"
+echo "    Setup unter:  http://${SERVER_IP}/setup"
+echo "    CLI:          nexredirect help"
+echo "    Logs:         nexredirect logs"
 echo ""

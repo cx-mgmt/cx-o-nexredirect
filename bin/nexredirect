@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+# nexredirect — CLI wrapper for CoreX NexRedirect on the server
+
+set -euo pipefail
+
+INSTALL_DIR="${NEXREDIRECT_DIR:-/opt/corex-nexredirect}"
+DATA_DIR="${NEXREDIRECT_DATA_DIR:-/var/lib/corex-nexredirect}"
+SERVICE_USER="nexredirect"
+SERVICE="corex-nexredirect.service"
+DB="$DATA_DIR/nexredirect.db"
+
+require_root() {
+  if [[ $EUID -ne 0 ]]; then
+    echo "Bitte mit sudo ausführen: sudo nexredirect $*" >&2
+    exit 1
+  fi
+}
+
+cmd_help() {
+  cat <<EOF
+nexredirect — CoreX NexRedirect CLI
+
+  status            Service-Status
+  start             Service starten
+  stop              Service stoppen
+  restart           Service neu starten
+  logs [-n N]       Logs streamen (default: -f)
+  update [tag]      Auf neueste Version (oder bestimmten Tag)
+  version           Aktuelle + neueste Version (GitHub)
+  caddy reload      Caddyfile neu generieren + reload
+  caddy show        Aktuellen Caddyfile anzeigen
+  db                SQLite-Shell auf der Datenbank öffnen
+  domains           Aktive Domains listen
+  hits [N]          Letzte N Hits (default 20)
+  tokens            API-Tokens auflisten
+  backup [PATH]     DB + Caddyfile sichern (default: /tmp/...)
+  uninstall         Service + Files entfernen (DB bleibt)
+  help              Diese Hilfe
+EOF
+}
+
+cmd_status() { systemctl status "$SERVICE" --no-pager; }
+cmd_start()  { require_root start; systemctl start "$SERVICE"; }
+cmd_stop()   { require_root stop;  systemctl stop "$SERVICE"; }
+cmd_restart(){ require_root restart; systemctl restart "$SERVICE"; }
+
+cmd_logs() {
+  local args=("-fu" "$SERVICE")
+  if [[ "${1:-}" == "-n" && -n "${2:-}" ]]; then args=("-n" "$2" "-u" "$SERVICE" "--no-pager"); fi
+  journalctl "${args[@]}"
+}
+
+cmd_update() {
+  require_root update
+  "$INSTALL_DIR/scripts/update.sh" "${1:-}"
+}
+
+cmd_version() {
+  if [[ -f "$INSTALL_DIR/package.json" ]]; then
+    local current
+    current=$(grep -m1 '"version"' "$INSTALL_DIR/package.json" | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+    echo "current: v$current"
+  fi
+  echo -n "latest:  "
+  curl -fsSL https://api.github.com/repos/CoreXManagement/CoreX-NexRedirect/releases/latest 2>/dev/null \
+    | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || echo "(check failed)"
+}
+
+cmd_caddy() {
+  case "${1:-}" in
+    reload)
+      require_root "caddy reload"
+      curl -fsS -X POST -H "Content-Type: text/caddyfile" --data-binary @/etc/caddy/Caddyfile http://localhost:2019/load \
+        && echo "Caddy reloaded" \
+        || systemctl reload caddy
+      ;;
+    show|config|"")
+      cat /etc/caddy/Caddyfile
+      ;;
+    *)
+      echo "Usage: nexredirect caddy [reload|show]" >&2
+      exit 1
+      ;;
+  esac
+}
+
+cmd_db() {
+  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert: apt install -y sqlite3"; exit 1; }
+  sqlite3 -header -column "$DB"
+}
+
+cmd_domains() {
+  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert"; exit 1; }
+  sqlite3 -header -column "$DB" \
+    "SELECT id, domain, status, redirect_code AS code, COALESCE(target_url, (SELECT target_url FROM domain_groups g WHERE g.id = d.group_id), '—') AS target FROM domains d ORDER BY created_at DESC;"
+}
+
+cmd_hits() {
+  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert"; exit 1; }
+  local n="${1:-20}"
+  sqlite3 -header -column "$DB" \
+    "SELECT datetime(ts/1000,'unixepoch','localtime') AS time, (SELECT domain FROM domains WHERE id = h.domain_id) AS domain, country, substr(path,1,40) AS path FROM hits h ORDER BY ts DESC LIMIT $n;"
+}
+
+cmd_tokens() {
+  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert"; exit 1; }
+  sqlite3 -header -column "$DB" \
+    "SELECT id, name, scopes, datetime(created_at/1000,'unixepoch','localtime') AS created, CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END AS status FROM api_tokens ORDER BY id DESC;"
+}
+
+cmd_backup() {
+  local target="${1:-/tmp/nexredirect-backup-$(date +%F-%H%M).tar.gz}"
+  require_root backup
+  tar -czf "$target" \
+    -C / \
+    "${DATA_DIR#/}/nexredirect.db" \
+    "${DATA_DIR#/}/nexredirect.db-wal" 2>/dev/null \
+    "${DATA_DIR#/}/nexredirect.db-shm" 2>/dev/null \
+    etc/caddy/Caddyfile 2>/dev/null || true
+  echo "Backup → $target"
+  ls -lh "$target"
+}
+
+cmd_uninstall() {
+  require_root uninstall
+  read -rp "Wirklich deinstallieren? (DB bleibt erhalten) [y/N] " ans
+  [[ "$ans" =~ ^[yY]$ ]] || { echo "Abgebrochen."; exit 0; }
+  systemctl disable --now "$SERVICE" 2>/dev/null || true
+  rm -f "/etc/systemd/system/$SERVICE" /etc/sudoers.d/corex-nexredirect /usr/local/bin/nexredirect
+  systemctl daemon-reload
+  rm -rf "$INSTALL_DIR"
+  echo "Entfernt. DB bleibt unter $DATA_DIR."
+}
+
+case "${1:-help}" in
+  status)    shift; cmd_status "$@" ;;
+  start)     shift; cmd_start "$@" ;;
+  stop)      shift; cmd_stop "$@" ;;
+  restart)   shift; cmd_restart "$@" ;;
+  logs)      shift; cmd_logs "$@" ;;
+  update)    shift; cmd_update "$@" ;;
+  version)   shift; cmd_version "$@" ;;
+  caddy)     shift; cmd_caddy "$@" ;;
+  db)        shift; cmd_db "$@" ;;
+  domains)   shift; cmd_domains "$@" ;;
+  hits)      shift; cmd_hits "$@" ;;
+  tokens)    shift; cmd_tokens "$@" ;;
+  backup)    shift; cmd_backup "$@" ;;
+  uninstall) shift; cmd_uninstall "$@" ;;
+  help|--help|-h) cmd_help ;;
+  *) echo "Unbekannter Befehl: $1"; echo; cmd_help; exit 1 ;;
+esac

@@ -63,6 +63,27 @@ Standardmäßig prüft der Server stündlich auf neue Releases und zeigt einen B
 
 Details: [docs/UPDATE.md](docs/UPDATE.md)
 
+## CLI
+
+Nach Install: `nexredirect <befehl>` auf dem Server.
+
+```
+nexredirect status            # Service-Status
+nexredirect logs              # Logs streamen
+nexredirect update [tag]      # Update auf neueste / Tag
+nexredirect version           # current + latest
+nexredirect restart           # Service-Restart
+nexredirect caddy reload      # Caddy reload
+nexredirect caddy show        # Caddyfile dumpen
+nexredirect domains           # aktive Domains
+nexredirect hits [N]          # letzte N Hits
+nexredirect tokens            # API-Token-Liste
+nexredirect db                # SQLite-Shell
+nexredirect backup [path]     # DB + Caddyfile sichern
+nexredirect uninstall         # entfernen (DB bleibt)
+nexredirect help
+```
+
 ## Stack
 
 - Next.js 15 + TypeScript + TailwindCSS + Radix UI + Recharts
