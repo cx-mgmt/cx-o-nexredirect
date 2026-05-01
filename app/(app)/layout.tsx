@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="relative flex h-screen overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(45,212,191,0.12),transparent_40%),radial-gradient(circle_at_bottom_left,rgba(245,158,11,0.07),transparent_34%)]" />
 
-      <Sidebar user={{ email: session.user.email }} />
+      <Sidebar user={{ email: session.user.email, role: session.user.role }} />
 
       <div className="relative flex flex-1 flex-col overflow-hidden">
         <UpdateBanner />
