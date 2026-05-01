@@ -32,7 +32,10 @@ app.prepare().then(() => {
             req.socket.remoteAddress ||
             "unknown";
           const ua = (req.headers["user-agent"] as string) || null;
-          if (shouldRecord(req.method || "GET", req.url || "/", ua)) {
+          // Hash IP early so we can use it for the scan-detector check
+          const { hashIp } = await import("./lib/db");
+          const ipHash = hashIp(ip);
+          if (shouldRecord(req.method || "GET", req.url || "/", ua, ipHash)) {
             recordHit({
               domain_id: resolved.domain_id,
               ip,

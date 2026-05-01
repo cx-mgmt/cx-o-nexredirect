@@ -2,14 +2,127 @@ import { getDb, hashIp } from "./db";
 import { lookupCountry } from "./geo";
 
 // Patterns we don't want polluting analytics
-const BOT_UA = /bot|crawl|spider|slurp|curl|wget|httpclient|python-requests|axios|node-fetch|monitor|uptime|pingdom|datadog|prometheus|scanner|fetch|preview|whatsapp|telegrambot|facebookexternalhit|linkedinbot|twitterbot|discordbot|skypeuripreview|mastodon|matrix-bot|preconnect|dnsperf|sentry|newrelic|gtmetrix|lighthouse|headlesschrome|phantomjs|puppeteer|playwright|chrome-lighthouse/i;
-const SKIP_PATHS = /^\/(favicon\.ico|robots\.txt|sitemap\.xml|apple-touch-icon[\w-]*\.png|browserconfig\.xml|\.well-known\/|ads\.txt)/i;
+const BOT_UA = /bot|crawl|spider|slurp|curl|wget|httpclient|python-requests|axios|node-fetch|monitor|uptime|pingdom|datadog|prometheus|scanner|fetch|preview|whatsapp|telegrambot|facebookexternalhit|linkedinbot|twitterbot|discordbot|skypeuripreview|mastodon|matrix-bot|preconnect|dnsperf|sentry|newrelic|gtmetrix|lighthouse|headlesschrome|phantomjs|puppeteer|playwright|chrome-lighthouse|go-http-client|java\/|okhttp|libwww|mechanize|nikto|sqlmap|nmap|masscan|zgrab|nuclei|acunetix|netcraft|expanse|censys|shodan|fuzz|burp|arachni|w3af|nikto|wpscan|gobuster|ffuf|dirb|dirbuster/i;
 
-export function shouldRecord(method: string, path: string | null, userAgent: string | null): boolean {
+// Known scanner / non-user paths. Treat any match as bot and skip recording.
+const SKIP_PATHS = new RegExp([
+  // Standard browser/bot probes
+  "^/favicon\\.",
+  "^/apple-touch-icon",
+  "^/robots\\.txt$",
+  "^/sitemap[\\w.-]*\\.xml",
+  "^/ads\\.txt$",
+  "^/browserconfig\\.xml$",
+  "^/\\.well-known/",
+  // Source-control / config leaks
+  "^/\\.git",
+  "^/\\.env",
+  "^/\\.DS_Store",
+  "^/\\.svn",
+  "^/\\.hg",
+  "^/\\.vscode",
+  "^/\\.idea",
+  // Common admin / app paths scanners poke
+  "^/wp-(admin|login|content|includes|json)",
+  "^/xmlrpc\\.php",
+  "^/wordpress/",
+  "^/admin/",
+  "^/administrator/",
+  "^/phpmyadmin",
+  "^/pma/",
+  "^/myadmin",
+  "^/mysql/",
+  "^/server-status",
+  "^/server-info",
+  "^/server\\b",
+  "^/info\\.php",
+  "^/test\\.php",
+  "^/login\\.action",
+  "^/console/",
+  "^/manager/",
+  "^/jenkins",
+  "^/jolokia",
+  "^/actuator",
+  "^/telescope",
+  "^/horizon",
+  "^/debug",
+  "^/trace\\.axd",
+  "^/elmah\\.axd",
+  "^/cgi-bin",
+  "^/about$",
+  // API / docs probing
+  "^/swagger",
+  "^/api-docs",
+  "^/api/swagger",
+  "^/v2/api-docs",
+  "^/v3/api-docs",
+  "^/v2/_catalog",
+  "^/webjars/",
+  "^/graphql",
+  "^/api/graphql",
+  "^/api/gql",
+  "^/api/?$",
+  // Vite / Next.js source-map probes
+  "^/_next/",
+  "^/@vite",
+  "^/__webpack",
+  "^/sourcemaps?/",
+  // Exchange / cpanel / WHM enumeration
+  "^/ecp/",
+  "^/owa/",
+  "^/___proxy_subdomain",
+  // Random JS/CSS-files scanners reach for (phishing-kit recon)
+  "^/(js|assets/js|static)/",
+  "^/(css|assets/css)/",
+  "^/bot-connect\\.",
+  "^/config\\.json$",
+  "^/composer\\.(json|lock)",
+  "^/package\\.(json|lock)",
+  // Path traversal / encoded probes
+  "\\.\\./",
+  "%2e%2e",
+  "/s/[0-9a-f]{20,}",
+  // Generic scanner queries
+  "rest_route=",
+].join("|"), "i");
+
+// In-memory per-IP scan-detector. If the same hashed IP hits >SCAN_THRESHOLD distinct
+// paths in SCAN_WINDOW_MS, treat further requests in that window as a scan.
+const SCAN_THRESHOLD = 4;
+const SCAN_WINDOW_MS = 30_000;
+type Tracker = { paths: Set<string>; firstSeen: number };
+const ipTracker = new Map<string, Tracker>();
+
+function ipScanCheck(ipHash: string, path: string): boolean {
+  const now = Date.now();
+  const cur = ipTracker.get(ipHash);
+  if (!cur || now - cur.firstSeen > SCAN_WINDOW_MS) {
+    ipTracker.set(ipHash, { paths: new Set([path]), firstSeen: now });
+    return false;
+  }
+  cur.paths.add(path);
+  if (cur.paths.size > SCAN_THRESHOLD) return true;
+  return false;
+}
+
+// Periodically prune (best-effort)
+if (typeof setInterval !== "undefined") {
+  setInterval(() => {
+    const cutoff = Date.now() - SCAN_WINDOW_MS;
+    for (const [k, v] of ipTracker.entries()) {
+      if (v.firstSeen < cutoff) ipTracker.delete(k);
+    }
+  }, 60_000).unref?.();
+}
+
+export function shouldRecord(method: string, path: string | null, userAgent: string | null, ipHash?: string): boolean {
   const m = (method || "GET").toUpperCase();
   if (m === "HEAD" || m === "OPTIONS") return false;
   if (path && SKIP_PATHS.test(path)) return false;
   if (userAgent && BOT_UA.test(userAgent)) return false;
+  // Heuristic: missing / very short UA is likely a script
+  if (!userAgent || userAgent.length < 15) return false;
+  if (ipHash && path && ipScanCheck(ipHash, path)) return false;
   return true;
 }
 
