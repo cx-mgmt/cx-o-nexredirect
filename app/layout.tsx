@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "CoreX NexRedirect",
+  title: "NexRedirect",
   description: "Self-hosted Domain-Redirect-Server mit Analytics",
 };
 

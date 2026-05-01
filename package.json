@@ -1,6 +1,6 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "license": "MIT",
   "overrides": {
     "postcss": "^8.5.13",

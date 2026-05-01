@@ -43,7 +43,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4">
             <Logo size={48} />
           </div>
-          <CardTitle className="text-2xl">CoreX NexRedirect</CardTitle>
+          <CardTitle className="text-2xl">NexRedirect</CardTitle>
           <CardDescription>Melde dich mit deinem Admin-Account an</CardDescription>
         </CardHeader>
         <CardContent>

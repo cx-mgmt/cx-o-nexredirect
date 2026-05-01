@@ -25,7 +25,7 @@ export function Sidebar({ user }: { user: { email: string; role?: string } }) {
         <Logo size={32} />
         <div>
           <p className="text-xs font-semibold tracking-tight text-zinc-100">NexRedirect</p>
-          <p className="text-[10px] text-muted-foreground">CoreX</p>
+          <p className="text-[10px] text-muted-foreground">Redirect-Server</p>
         </div>
       </div>
 

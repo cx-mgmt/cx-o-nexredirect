@@ -302,7 +302,7 @@ export function ReportClient({ data }: { data: ReportData; logo?: React.ReactNod
           <div className="cover-spacer" />
           <div className="kicker">Domain-Redirect-Report</div>
           <div className="big-title">{s.title}</div>
-          <div className="sub-title">Statistik-Report · CoreX NexRedirect</div>
+          <div className="sub-title">Statistik-Report · NexRedirect</div>
           <div className="divider" />
 
           <p className="rep-p">

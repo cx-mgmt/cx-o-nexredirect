@@ -73,7 +73,7 @@ export default function SetupPage() {
             <Logo size={48} />
           </div>
           <CardTitle className="text-2xl">Erstes Setup</CardTitle>
-          <CardDescription>Erstelle deinen Admin-Account für CoreX NexRedirect</CardDescription>
+          <CardDescription>Erstelle deinen Admin-Account für NexRedirect</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
