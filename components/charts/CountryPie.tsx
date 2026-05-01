@@ -11,8 +11,13 @@ export function CountryPie({ data }: { data: { country: string; hits: number }[]
         <Pie data={data} dataKey="hits" nameKey="country" outerRadius={100} label={({ country }) => country}>
           {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
         </Pie>
-        <Tooltip contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12 }} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Tooltip
+          contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12, color: "#e5e7eb" }}
+          itemStyle={{ color: "#e5e7eb" }}
+          labelStyle={{ color: "#a1a1aa" }}
+          formatter={(value: number, name: string) => [value.toLocaleString("de-DE"), name]}
+        />
+        <Legend wrapperStyle={{ fontSize: 11, color: "#e5e7eb" }} />
       </PieChart>
     </ResponsiveContainer>
   );

@@ -11,7 +11,11 @@ export function HitsLineChart({ data }: { data: { day: string; hits: number }[] 
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(82,95,122,0.2)" />
         <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#a1a1aa" }} />
         <YAxis tick={{ fontSize: 10, fill: "#a1a1aa" }} />
-        <Tooltip contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12 }} />
+        <Tooltip
+          contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 8, fontSize: 12, color: "#e5e7eb" }}
+          itemStyle={{ color: "#e5e7eb" }}
+          labelStyle={{ color: "#a1a1aa" }}
+        />
         <Line type="monotone" dataKey="hits" stroke="#22d3ee" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>

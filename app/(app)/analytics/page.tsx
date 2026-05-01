@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { HitsLineChart } from "@/components/charts/HitsLineChart";
 import { TopDomainsBarChart } from "@/components/charts/TopDomainsBarChart";
 import { CountryPie } from "@/components/charts/CountryPie";
+import { ExportPdfButton } from "./ExportPdfButton";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,11 @@ export default function AnalyticsPage() {
 
   return (
     <div>
-      <PageHeader title="Analytics" description="Hit-Statistiken letzte 30 Tage" />
+      <PageHeader
+        title="Analytics"
+        description="Hit-Statistiken letzte 30 Tage"
+        actions={<ExportPdfButton />}
+      />
 
       <div className="space-y-4 p-8">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
