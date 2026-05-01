@@ -1,10 +1,11 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "license": "MIT",
   "overrides": {
     "postcss": "^8.5.13",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "nodemailer": "^8.0.7"
   },
   "scripts": {
     "dev": "tsx watch server.ts",
@@ -27,7 +28,7 @@
     "maxmind": "^4.3.20",
     "next": "^15.5.15",
     "next-auth": "^4.24.14",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^8.0.7",
     "puppeteer-core": "^24.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
