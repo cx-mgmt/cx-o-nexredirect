@@ -133,7 +133,8 @@ sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && NEXREDIRECT_DATA_DIR='$
   echo "    (Server-IP konnte nicht direkt gesetzt werden — manuell via /settings nachholen.)"
 
 systemctl daemon-reload
-systemctl enable --now caddy
+systemctl enable caddy >/dev/null 2>&1 || true
+systemctl reload caddy 2>/dev/null || systemctl restart caddy
 systemctl enable --now corex-nexredirect
 
 echo ""
