@@ -20,6 +20,12 @@ if ! command -v sqlite3 >/dev/null 2>&1; then
   apt-get install -y -qq sqlite3 >/dev/null 2>&1 || true
 fi
 
+# Caddyfile-Permissions reparieren (App muss schreiben können)
+if [[ -f /etc/caddy/Caddyfile ]]; then
+  chown "$SERVICE_USER:$SERVICE_USER" /etc/caddy/Caddyfile 2>/dev/null || true
+  chmod 644 /etc/caddy/Caddyfile 2>/dev/null || true
+fi
+
 if [[ -z "$TAG" ]]; then
   TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
     | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || true)

@@ -160,6 +160,11 @@ cat > /etc/caddy/Caddyfile <<EOF
 }
 EOF
 
+# Caddyfile + caddy-data writable by service user, so app can regenerate per-domain blocks
+chown -R "$SERVICE_USER:$SERVICE_USER" /etc/caddy/Caddyfile
+chmod 644 /etc/caddy/Caddyfile
+# Caddy admin API runs as caddy user; allow service user to talk to it (localhost:2019 is fine)
+
 # Server-IPs in DB-Settings schreiben (via tsx)
 sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && NEXREDIRECT_DATA_DIR='$DATA_DIR' SERVER_IP='$SERVER_IP' SERVER_IPV6='$SERVER_IPV6' ./node_modules/.bin/tsx -e \"import('./lib/db').then(({setSetting})=>{if(process.env.SERVER_IP)setSetting('server_ip',process.env.SERVER_IP);if(process.env.SERVER_IPV6)setSetting('server_ipv6',process.env.SERVER_IPV6);})\"" || \
   echo "    (Server-IP konnte nicht direkt gesetzt werden — manuell via /settings nachholen.)"

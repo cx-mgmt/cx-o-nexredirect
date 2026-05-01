@@ -28,7 +28,9 @@ nexredirect — CoreX NexRedirect CLI
   update [tag]      Auf neueste Version (oder bestimmten Tag); skip wenn schon aktuell
   update -f [tag]   Update erzwingen auch wenn Version gleich
   version           Aktuelle + neueste Version (GitHub)
-  caddy reload      Caddyfile neu generieren + reload
+  caddy reload      Caddyfile reload via Admin-API
+  caddy regen       Caddyfile aus DB neu generieren (per-Domain-Blöcke + Auto-HTTPS)
+  caddy fix-perms   /etc/caddy/Caddyfile dem Service-User übertragen
   caddy show        Aktuellen Caddyfile anzeigen
   db                SQLite-Shell auf der Datenbank öffnen
   domains           Aktive Domains listen
@@ -93,11 +95,23 @@ cmd_caddy() {
         && echo "Caddy reloaded" \
         || systemctl reload caddy
       ;;
+    regen)
+      require_root "caddy regen"
+      chown "$SERVICE_USER:$SERVICE_USER" /etc/caddy/Caddyfile 2>/dev/null || true
+      chmod 644 /etc/caddy/Caddyfile 2>/dev/null || true
+      sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && NEXREDIRECT_DATA_DIR='$DATA_DIR' ./node_modules/.bin/tsx -e \"import('./lib/caddy').then(async m=>{const r=await m.reloadCaddy();console.log(JSON.stringify(r));process.exit(r.ok?0:1)})\""
+      ;;
+    fix-perms)
+      require_root "caddy fix-perms"
+      chown "$SERVICE_USER:$SERVICE_USER" /etc/caddy/Caddyfile
+      chmod 644 /etc/caddy/Caddyfile
+      echo "OK — Caddyfile gehört jetzt $SERVICE_USER"
+      ;;
     show|config|"")
       cat /etc/caddy/Caddyfile
       ;;
     *)
-      echo "Usage: nexredirect caddy [reload|show]" >&2
+      echo "Usage: nexredirect caddy [reload|regen|fix-perms|show]" >&2
       exit 1
       ;;
   esac
