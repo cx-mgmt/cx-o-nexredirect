@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Globe, Layers, BarChart3, Settings, LogOut, KeyRound } from "lucide-react";
+import { LayoutDashboard, Globe, Layers, BarChart3, Settings, LogOut, KeyRound, History } from "lucide-react";
 import { Logo } from "./Logo";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ const NAV = [
   { href: "/domains", label: "Domains", icon: Globe },
   { href: "/groups", label: "Gruppen", icon: Layers },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/audit", label: "Audit-Log", icon: History },
   { href: "/settings", label: "Einstellungen", icon: Settings },
   { href: "/settings/api-tokens", label: "API-Tokens", icon: KeyRound },
 ];

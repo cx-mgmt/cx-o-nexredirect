@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getDb, type DomainRow } from "@/lib/db";
+import { getDb, logAudit, type DomainRow } from "@/lib/db";
 import { isValidDomain } from "@/lib/dns";
 
 export async function GET() {
@@ -64,5 +64,6 @@ export async function POST(req: Request) {
     );
 
   const row = db.prepare("SELECT * FROM domains WHERE id = ?").get(result.lastInsertRowid) as DomainRow;
+  logAudit({ user_id: Number(session.user.id), user_email: session.user.email, action: "domain.create", target_type: "domain", target_id: row.id, details: { domain: row.domain, target_url, group_id, redirect_code } });
   return NextResponse.json({ domain: row }, { status: 201 });
 }

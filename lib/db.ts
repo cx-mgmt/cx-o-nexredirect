@@ -92,7 +92,44 @@ function ensureSchema(db: Database.Database) {
     );
   `);
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts INTEGER NOT NULL,
+      user_id INTEGER,
+      user_email TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);
+  `);
+
   runMigrations(db);
+}
+
+export function logAudit(entry: {
+  user_id?: number | null;
+  user_email?: string | null;
+  action: string;
+  target_type?: string;
+  target_id?: string | number;
+  details?: unknown;
+}) {
+  try {
+    getDb().prepare(`INSERT INTO audit_log (ts, user_id, user_email, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+      Date.now(),
+      entry.user_id ?? null,
+      entry.user_email ?? null,
+      entry.action,
+      entry.target_type ?? null,
+      entry.target_id !== undefined ? String(entry.target_id) : null,
+      entry.details === undefined ? null : JSON.stringify(entry.details),
+    );
+  } catch {
+    // never block the main flow on audit failure
+  }
 }
 
 function getSettingDirect(db: Database.Database, key: string): string | null {

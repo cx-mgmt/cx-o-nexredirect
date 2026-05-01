@@ -6,6 +6,8 @@ import { HitsLineChart } from "@/components/charts/HitsLineChart";
 import { TopDomainsBarChart } from "@/components/charts/TopDomainsBarChart";
 import { CountryPie } from "@/components/charts/CountryPie";
 import { ExportPdfButton } from "./ExportPdfButton";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +53,14 @@ export default function AnalyticsPage() {
       <PageHeader
         title="Analytics"
         description="Hit-Statistiken letzte 30 Tage"
-        actions={<ExportPdfButton />}
+        actions={
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/hits/export.csv?days=30" download><FileDown className="mr-1 h-3 w-3" />Hits CSV</a>
+            </Button>
+            <ExportPdfButton />
+          </div>
+        }
       />
 
       <div className="space-y-4 p-8">

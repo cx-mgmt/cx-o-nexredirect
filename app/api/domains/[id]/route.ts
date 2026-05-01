@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getDb, type DomainRow } from "@/lib/db";
+import { getDb, logAudit, type DomainRow } from "@/lib/db";
 import { reloadCaddy } from "@/lib/caddy";
 import { invalidateRedirectCache } from "@/lib/redirect-resolver";
 
@@ -71,6 +71,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const row = db.prepare("SELECT * FROM domains WHERE id = ?").get(Number(id)) as DomainRow;
+  logAudit({ user_id: Number(session.user.id), user_email: session.user.email, action: "domain.update", target_type: "domain", target_id: row.id, details: parsed.data });
   return NextResponse.json({ domain: row });
 }
 
@@ -86,6 +87,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   db.prepare("DELETE FROM domains WHERE id = ?").run(Number(id));
   invalidateRedirectCache();
   if (row.status === "active") reloadCaddy().catch(() => {});
+  logAudit({ user_id: Number(session.user.id), user_email: session.user.email, action: "domain.delete", target_type: "domain", target_id: row.id, details: { domain: row.domain } });
 
   return NextResponse.json({ ok: true });
 }

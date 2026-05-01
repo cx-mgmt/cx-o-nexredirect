@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, AlertCircle, ArrowRight, Loader2, Sunset } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, ArrowRight, Loader2, Sunset, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,6 +80,27 @@ export function DomainsListClient({ domains }: { domains: DomainListRow[] }) {
     }
   }
 
+  async function bulkDelete() {
+    const ids = Array.from(selected);
+    const totalHits = domains.filter((d) => selected.has(d.id)).reduce((s, d) => s + d.total_hits, 0);
+    const msg = `${ids.length} Domain${ids.length === 1 ? "" : "s"} unwiderruflich löschen?\n\n${totalHits.toLocaleString("de-DE")} Hits werden mitgelöscht.`;
+    if (!confirm(msg)) return;
+    setSaving(true);
+    try {
+      const r = await fetch("/api/domains/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain_ids: ids }),
+      });
+      if (r.ok) {
+        setSelected(new Set());
+        router.refresh();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="p-8 space-y-3">
       {selected.size > 0 && (
@@ -87,9 +108,13 @@ export function DomainsListClient({ domains }: { domains: DomainListRow[] }) {
           <span>{selected.size} ausgewählt</span>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => setSelected(new Set())}>Auswahl aufheben</Button>
+            <Button size="sm" variant="destructive" onClick={bulkDelete} disabled={saving}>
+              <Trash2 className="mr-1 h-3 w-3" />
+              Löschen
+            </Button>
             <Button size="sm" onClick={() => setBulkOpen(true)}>
               <Sunset className="mr-1 h-3 w-3" />
-              Sunset-Hinweis konfigurieren
+              Sunset-Hinweis
             </Button>
           </div>
         </div>

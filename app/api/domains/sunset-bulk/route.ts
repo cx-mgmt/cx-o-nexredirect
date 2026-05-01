@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, logAudit } from "@/lib/db";
 import { invalidateRedirectCache } from "@/lib/redirect-resolver";
 
 const sunsetSchema = z.object({
@@ -34,5 +34,6 @@ export async function POST(req: Request) {
   db.prepare(`UPDATE domains SET sunset_config = ? WHERE id IN (${placeholders})`).run(value, ...domain_ids);
 
   invalidateRedirectCache();
+  logAudit({ user_id: Number(session.user.id), user_email: session.user.email, action: "sunset.bulk", target_type: "domain", target_id: domain_ids.join(","), details: { enabled: !!config?.enabled, count: domain_ids.length } });
   return NextResponse.json({ ok: true, updated: domain_ids.length });
 }

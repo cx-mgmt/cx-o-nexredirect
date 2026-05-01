@@ -4,7 +4,7 @@ import { useState } from "react";
 import { RefreshCcw, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function DomainActions({ id, status }: { id: number; status: string }) {
+export function DomainActions({ id, status, hitsTotal = 0, domainName = "" }: { id: number; status: string; hitsTotal?: number; domainName?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"verify" | "delete" | null>(null);
   const [msg, setMsg] = useState("");
@@ -23,7 +23,10 @@ export function DomainActions({ id, status }: { id: number; status: string }) {
   }
 
   async function del() {
-    if (!confirm("Domain wirklich löschen? Hits bleiben gelöscht.")) return;
+    const warn = hitsTotal > 0
+      ? `Domain "${domainName}" wirklich löschen?\n\n${hitsTotal.toLocaleString("de-DE")} Hits werden mitgelöscht.\n\nDieser Schritt ist nicht umkehrbar.`
+      : `Domain "${domainName}" wirklich löschen?`;
+    if (!confirm(warn)) return;
     setBusy("delete");
     try {
       const res = await fetch(`/api/domains/${id}`, { method: "DELETE" });

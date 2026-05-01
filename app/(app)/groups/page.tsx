@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ export default function GroupsPage() {
   const [code, setCode] = useState<301 | 302>(302);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<Group | null>(null);
 
   async function load() {
     setLoading(true);
@@ -61,6 +62,29 @@ export default function GroupsPage() {
       return;
     }
     load();
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setCreating(true);
+    setError("");
+    try {
+      const r = await fetch(`/api/groups/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editing.name, target_url: editing.target_url, redirect_code: editing.redirect_code }),
+      });
+      if (!r.ok) {
+        const d = await r.json();
+        setError(d.error || "Fehler");
+        return;
+      }
+      setEditing(null);
+      load();
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -121,9 +145,14 @@ export default function GroupsPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <CardTitle className="text-base">{g.name}</CardTitle>
-                    <button onClick={() => handleDelete(g.id)} className="rounded p-1 text-zinc-500 hover:text-destructive" title="Löschen">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex gap-1">
+                      <button onClick={() => setEditing({ ...g })} className="rounded p-1 text-zinc-500 hover:text-zinc-200" title="Bearbeiten">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(g.id)} className="rounded p-1 text-zinc-500 hover:text-destructive" title="Löschen">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
@@ -138,6 +167,40 @@ export default function GroupsPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gruppe bearbeiten</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <form onSubmit={handleEditSave} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs">Name</Label>
+                <Input required value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Ziel-URL</Label>
+                <Input required type="url" value={editing.target_url} onChange={(e) => setEditing({ ...editing, target_url: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Status-Code</Label>
+                <select value={editing.redirect_code} onChange={(e) => setEditing({ ...editing, redirect_code: Number(e.target.value) })} className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 py-1 text-sm text-zinc-100">
+                  <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär</option>
+                  <option value={301} className="bg-zinc-900 text-zinc-100">301 Permanent</option>
+                </select>
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditing(null)}>Abbrechen</Button>
+                <Button type="submit" disabled={creating}>
+                  {creating ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}Speichern
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

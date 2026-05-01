@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileDown } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/lib/db";
@@ -29,9 +30,14 @@ export default function DomainsPage() {
         title="Domains"
         description="Alle verwalteten Redirect-Domains"
         actions={
-          <Button asChild>
-            <Link href="/domains/new">+ Domain hinzufügen</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/domains/export.csv" download><FileDown className="mr-1 h-3 w-3" />CSV</a>
+            </Button>
+            <Button asChild>
+              <Link href="/domains/new">+ Domain hinzufügen</Link>
+            </Button>
+          </div>
         }
       />
       <DomainsListClient domains={domains} />
