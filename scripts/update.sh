@@ -11,6 +11,7 @@ SERVICE_USER="nexredirect"
 
 cd "$INSTALL_DIR"
 
+chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 git fetch --tags --quiet
 if [[ -n "$TAG" ]]; then
   git checkout --quiet "$TAG"
