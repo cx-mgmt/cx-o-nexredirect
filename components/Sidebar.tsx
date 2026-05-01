@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { LayoutDashboard, Globe, Layers, BarChart3, Settings, LogOut, KeyRound, History, Users } from "lucide-react";
 import { Logo } from "./Logo";
 import { cn } from "@/lib/utils";
@@ -58,9 +59,13 @@ export function Sidebar({ user }: { user: { email: string; role?: string } }) {
             <p className="truncate text-xs font-medium text-zinc-200">{user.email}</p>
             <p className="truncate text-[10px] text-zinc-500">{user.role === "admin" ? "Admin" : "User"}</p>
           </div>
-          <Link href="/api/auth/signout" className="rounded p-1 text-zinc-600 hover:text-zinc-300" title="Abmelden">
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="rounded p-1 text-zinc-600 hover:text-zinc-300"
+            title="Abmelden"
+          >
             <LogOut className="h-3.5 w-3.5" />
-          </Link>
+          </button>
         </div>
       </div>
     </aside>
