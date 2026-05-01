@@ -41,7 +41,13 @@ app.prepare().then(() => {
           const target = resolved.preserve_path
             ? resolved.target_url + (parsedUrl.path || "")
             : resolved.target_url;
-          res.writeHead(resolved.redirect_code || 301, { Location: target });
+          res.writeHead(resolved.redirect_code || 302, {
+            Location: target,
+            // Forbid caching so every hit reaches us for analytics.
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            Pragma: "no-cache",
+            Expires: "0",
+          });
           res.end();
           return;
         }

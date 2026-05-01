@@ -17,7 +17,7 @@ export default function GroupsPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
-  const [code, setCode] = useState<301 | 302>(301);
+  const [code, setCode] = useState<301 | 302>(302);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
 
@@ -90,9 +90,12 @@ export default function GroupsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="code">Status-Code</Label>
                   <select id="code" value={code} onChange={(e) => setCode(Number(e.target.value) as 301 | 302)} className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 py-1 text-sm text-zinc-100">
+                    <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär (empfohlen)</option>
                     <option value={301} className="bg-zinc-900 text-zinc-100">301 Permanent</option>
-                    <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär</option>
                   </select>
+                  {code === 301 && (
+                    <p className="text-[11px] text-amber-400">⚠ 301 wird vom Browser gecacht — Hits gehen verloren.</p>
+                  )}
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <div className="flex justify-end">

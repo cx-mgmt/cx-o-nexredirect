@@ -31,7 +31,7 @@ export default function NewDomainPage() {
   const [targetMode, setTargetMode] = useState<"url" | "group">("url");
   const [targetUrl, setTargetUrl] = useState("");
   const [groupId, setGroupId] = useState<number | "">("");
-  const [redirectCode, setRedirectCode] = useState<301 | 302>(301);
+  const [redirectCode, setRedirectCode] = useState<301 | 302>(302);
   const [preservePath, setPreservePath] = useState(true);
   const [includeWww, setIncludeWww] = useState(true);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -152,9 +152,14 @@ export default function NewDomainPage() {
                       onChange={(e) => setRedirectCode(Number(e.target.value) as 301 | 302)}
                       className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 py-1 text-sm text-zinc-100"
                     >
+                      <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär (empfohlen)</option>
                       <option value={301} className="bg-zinc-900 text-zinc-100">301 Permanent</option>
-                      <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär</option>
                     </select>
+                    {redirectCode === 301 && (
+                      <p className="text-[11px] text-amber-400">
+                        ⚠ 301 wird vom Browser gecacht — Folge-Aufrufe gehen direkt zum Ziel ohne hier gezählt zu werden.
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-end gap-4">
                     <label className="flex items-center gap-2 text-sm">

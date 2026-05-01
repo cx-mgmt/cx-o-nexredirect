@@ -33,7 +33,7 @@ function ensureSchema(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       target_url TEXT NOT NULL,
-      redirect_code INTEGER NOT NULL DEFAULT 301,
+      redirect_code INTEGER NOT NULL DEFAULT 302,
       created_by INTEGER REFERENCES users(id),
       created_at INTEGER NOT NULL
     );
@@ -44,7 +44,7 @@ function ensureSchema(db: Database.Database) {
       status TEXT NOT NULL DEFAULT 'pending',
       target_url TEXT,
       group_id INTEGER REFERENCES domain_groups(id) ON DELETE SET NULL,
-      redirect_code INTEGER NOT NULL DEFAULT 301,
+      redirect_code INTEGER NOT NULL DEFAULT 302,
       preserve_path INTEGER NOT NULL DEFAULT 1,
       include_www INTEGER NOT NULL DEFAULT 1,
       created_by INTEGER REFERENCES users(id),

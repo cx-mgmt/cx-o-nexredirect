@@ -59,7 +59,10 @@ export default async function DomainDetailPage({ params }: { params: Promise<{ i
               ) : "—"}
             </Row>
             {group && <Row k="Gruppe"><Badge variant="blue">{group.name}</Badge></Row>}
-            <Row k="Code">{domain.redirect_code}</Row>
+            <Row k="Code">
+              {domain.redirect_code}
+              {domain.redirect_code === 301 && <span className="ml-1 text-[10px] text-amber-400" title="301 wird vom Browser gecacht">⚠</span>}
+            </Row>
             <Row k="Pfad übernehmen">{domain.preserve_path ? "ja" : "nein"}</Row>
             <Row k="www-Subdomain">{domain.include_www ? "ja" : "nein"}</Row>
             <Row k="Verifiziert">{domain.verified_at ? new Date(domain.verified_at).toLocaleString("de-DE") : "—"}</Row>
