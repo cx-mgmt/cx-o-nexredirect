@@ -35,7 +35,14 @@ app.prepare().then(() => {
           // Hash IP early so we can use it for the scan-detector check
           const { hashIp } = await import("./lib/db");
           const ipHash = hashIp(ip);
-          if (shouldRecord(req.method || "GET", req.url || "/", ua, ipHash)) {
+          const signals = {
+            accept: (req.headers["accept"] as string) || null,
+            acceptLanguage: (req.headers["accept-language"] as string) || null,
+            secFetchMode: (req.headers["sec-fetch-mode"] as string) || null,
+            secFetchDest: (req.headers["sec-fetch-dest"] as string) || null,
+            secFetchSite: (req.headers["sec-fetch-site"] as string) || null,
+          };
+          if (shouldRecord(req.method || "GET", req.url || "/", ua, ipHash, signals)) {
             recordHit({
               domain_id: resolved.domain_id,
               ip,

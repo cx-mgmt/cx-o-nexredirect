@@ -115,14 +115,45 @@ if (typeof setInterval !== "undefined") {
   }, 60_000).unref?.();
 }
 
-export function shouldRecord(method: string, path: string | null, userAgent: string | null, ipHash?: string): boolean {
+export type RequestSignals = {
+  accept?: string | null;
+  acceptLanguage?: string | null;
+  secFetchMode?: string | null;
+  secFetchDest?: string | null;
+  secFetchSite?: string | null;
+};
+
+export function shouldRecord(
+  method: string,
+  path: string | null,
+  userAgent: string | null,
+  ipHash?: string,
+  signals?: RequestSignals,
+): boolean {
   const m = (method || "GET").toUpperCase();
   if (m === "HEAD" || m === "OPTIONS") return false;
   if (path && SKIP_PATHS.test(path)) return false;
   if (userAgent && BOT_UA.test(userAgent)) return false;
   // Heuristic: missing / very short UA is likely a script
   if (!userAgent || userAgent.length < 15) return false;
+  // Real browsers always send Mozilla/ prefix; bots that fake it usually still match BOT_UA
+  if (!/^Mozilla\//i.test(userAgent)) return false;
   if (ipHash && path && ipScanCheck(ipHash, path)) return false;
+
+  // Browser-signal check: a navigation request from a real browser sends Sec-Fetch-Mode
+  // (Chrome/FF/Safari/Edge since 2020) AND Accept-Language. Curl/scanners almost never send both.
+  // For redirect-server use-case a "real" hit is always a top-level navigation, so this is
+  // safe to require.
+  if (signals) {
+    const hasSecFetch = !!signals.secFetchMode;
+    const hasAcceptLang = !!signals.acceptLanguage;
+    const acceptHtml = !!signals.accept && /text\/html/i.test(signals.accept);
+    // Need at least 2 of 3 to pass (real browsers send all 3; old browsers may miss Sec-Fetch)
+    const score = (hasSecFetch ? 1 : 0) + (hasAcceptLang ? 1 : 0) + (acceptHtml ? 1 : 0);
+    if (score < 2) return false;
+    // Sec-Fetch-Dest should be document/empty for navigation; reject script/image probes
+    if (signals.secFetchDest && !/^(document|empty|iframe)$/i.test(signals.secFetchDest)) return false;
+  }
   return true;
 }
 
