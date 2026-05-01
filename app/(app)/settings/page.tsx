@@ -119,24 +119,46 @@ export default function SettingsPage() {
     if (!confirm(`Update auf ${status?.latest} jetzt installieren?\n\nDer Server wird neu gestartet (kurze Downtime der Admin-UI). Redirects bleiben über Caddy aktiv.`)) return;
     setApplying(true);
     setMsg("Update läuft — bitte warten...");
+
+    // Fallback: reload after 90s no matter what (in case fetch/poll get stuck)
+    const fallbackReload = setTimeout(() => window.location.reload(), 90_000);
+
     try {
-      const r = await fetch("/api/update/apply", { method: "POST" });
       let d: { ok?: boolean; from?: string; to?: string; error?: string } = {};
-      try { d = await r.json(); } catch {}
-      if (!r.ok || d.error) {
-        setMsg(`Fehler: ${d.error || r.statusText}`);
+      try {
+        const r = await fetch("/api/update/apply", { method: "POST" });
+        try { d = await r.json(); } catch {}
+        if (!r.ok && !d.error) d.error = r.statusText;
+      } catch (e) {
+        // Connection drop = server probably restarted mid-response (legacy update.sh)
+        d.error = e instanceof Error ? e.message : "connection_lost";
+      }
+
+      if (d.error === "no_update") {
+        setMsg("Bereits auf aktueller Version.");
+        clearTimeout(fallbackReload);
+        await fetch("/api/update/check?force=1").catch(() => {});
+        load();
         setApplying(false);
         return;
       }
-      setMsg(`Update gezogen (${d.from} → ${d.to}). Server startet neu...`);
-      // Wait for restart, then hard-reload to drop all client cache
+
+      if (d.error && !d.to) {
+        setMsg(`Fehler: ${d.error}`);
+        clearTimeout(fallbackReload);
+        setApplying(false);
+        return;
+      }
+
+      setMsg(d.to ? `Update gezogen (${d.from} → ${d.to}). Server startet neu...` : "Server startet neu...");
       await new Promise((res) => setTimeout(res, 3000));
       const back = await waitForServerBack();
-      setMsg(back ? "Server zurück. Lade Seite neu..." : "Restart dauert ungewöhnlich lang. Trotzdem neu laden.");
+      setMsg(back ? "Server zurück. Lade Seite neu..." : "Restart dauert ungewöhnlich lang — lade trotzdem neu.");
+      clearTimeout(fallbackReload);
       window.location.reload();
     } catch (e) {
-      setMsg(`Fehler: ${e instanceof Error ? e.message : String(e)}`);
-      setApplying(false);
+      setMsg(`Fehler: ${e instanceof Error ? e.message : String(e)} — lade in 5s neu.`);
+      setTimeout(() => window.location.reload(), 5000);
     }
   }
 

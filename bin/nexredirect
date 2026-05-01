@@ -25,7 +25,8 @@ nexredirect — CoreX NexRedirect CLI
   stop              Service stoppen
   restart           Service neu starten
   logs [-n N]       Logs streamen (default: -f)
-  update [tag]      Auf neueste Version (oder bestimmten Tag)
+  update [tag]      Auf neueste Version (oder bestimmten Tag); skip wenn schon aktuell
+  update -f [tag]   Update erzwingen auch wenn Version gleich
   version           Aktuelle + neueste Version (GitHub)
   caddy reload      Caddyfile neu generieren + reload
   caddy show        Aktuellen Caddyfile anzeigen
@@ -52,7 +53,25 @@ cmd_logs() {
 
 cmd_update() {
   require_root update
-  "$INSTALL_DIR/scripts/update.sh" "${1:-}"
+  local force=0
+  local target="${1:-}"
+  if [[ "$target" == "-f" || "$target" == "--force" ]]; then force=1; target="${2:-}"; fi
+
+  if [[ $force -eq 0 ]]; then
+    local current latest
+    current=$(grep -m1 '"version"' "$INSTALL_DIR/package.json" 2>/dev/null | sed -E 's/.*"version": *"([^"]+)".*/v\1/')
+    if [[ -n "$target" ]]; then
+      latest="$target"
+    else
+      latest=$(curl -fsSL https://api.github.com/repos/CoreXManagement/CoreX-NexRedirect/releases/latest 2>/dev/null \
+        | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    fi
+    if [[ -n "$current" && "$current" == "$latest" ]]; then
+      echo "Bereits auf $current — nichts zu tun. Mit --force trotzdem ausführen."
+      return 0
+    fi
+  fi
+  "$INSTALL_DIR/scripts/update.sh" "$target"
 }
 
 cmd_version() {
