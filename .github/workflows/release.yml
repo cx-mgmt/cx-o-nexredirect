@@ -1,0 +1,39 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Package .next/
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          tar -czf "nexredirect-next-${TAG}.tar.gz" .next
+          ls -lh "nexredirect-next-${TAG}.tar.gz"
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: nexredirect-next-*.tar.gz
+          tag_name: ${{ github.ref_name }}
+          fail_on_unmatched_files: true
