@@ -21,6 +21,8 @@ function getStats() {
   const groups = (db.prepare("SELECT COUNT(*) AS n FROM domain_groups").get() as { n: number }).n;
   const hits24h = (db.prepare("SELECT COUNT(*) AS n FROM hits WHERE ts > ?").get(since24h) as { n: number }).n;
   const hits30d = (db.prepare("SELECT COUNT(*) AS n FROM hits WHERE ts > ?").get(since30d) as { n: number }).n;
+  const visitors24h = (db.prepare("SELECT COUNT(DISTINCT ip_hash) AS n FROM hits WHERE ts > ?").get(since24h) as { n: number }).n;
+  const visitors30d = (db.prepare("SELECT COUNT(DISTINCT ip_hash) AS n FROM hits WHERE ts > ?").get(since30d) as { n: number }).n;
 
   const dailyRows = db.prepare(`
     SELECT strftime('%Y-%m-%d', ts/1000, 'unixepoch') AS day, COUNT(*) AS hits
@@ -36,7 +38,7 @@ function getStats() {
     ORDER BY hits DESC LIMIT 10
   `).all(since30d) as { domain: string; hits: number }[];
 
-  return { totalDomains, activeDomains, pendingDomains, groups, hits24h, hits30d, dailyRows, topRows };
+  return { totalDomains, activeDomains, pendingDomains, groups, hits24h, hits30d, visitors24h, visitors30d, dailyRows, topRows };
 }
 
 export default function DashboardPage() {
@@ -58,7 +60,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <StatCard icon={<Globe className="h-4 w-4" />} label="Domains" value={s.totalDomains} sub={`${s.activeDomains} aktiv`} />
           <StatCard icon={<AlertCircle className="h-4 w-4" />} label="Wartend" value={s.pendingDomains} sub="DNS-Verify nötig" />
-          <StatCard icon={<MousePointerClick className="h-4 w-4" />} label="Hits (24h)" value={s.hits24h} sub={`${s.hits30d} in 30 Tagen`} />
+          <StatCard icon={<MousePointerClick className="h-4 w-4" />} label="Hits (24h)" value={s.hits24h} sub={`${s.visitors24h} Besucher`} />
           <StatCard icon={<Layers className="h-4 w-4" />} label="Gruppen" value={s.groups} />
         </div>
 

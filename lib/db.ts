@@ -143,6 +143,14 @@ export function hashIp(ip: string): string {
   return crypto.createHash("sha256").update(ip + getDailySalt()).digest("hex");
 }
 
+export type SunsetConfig = {
+  enabled: boolean;
+  title?: string;
+  message?: string;
+  button_label?: string;
+  sunset_date?: string;
+};
+
 export type DomainRow = {
   id: number;
   domain: string;
@@ -155,7 +163,18 @@ export type DomainRow = {
   created_by: number | null;
   created_at: number;
   verified_at: number | null;
+  sunset_config: string | null;
 };
+
+export function parseSunset(row: { sunset_config?: string | null }): SunsetConfig | null {
+  if (!row.sunset_config) return null;
+  try {
+    const parsed = JSON.parse(row.sunset_config) as SunsetConfig;
+    return parsed.enabled ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export type DomainGroupRow = {
   id: number;

@@ -8,7 +8,8 @@ import http from "http";
 import { parse } from "url";
 import next from "next";
 import { resolveHost, isAdminHost } from "./lib/redirect-resolver";
-import { recordHit } from "./lib/hits";
+import { recordHit, shouldRecord } from "./lib/hits";
+import { renderSunsetPage } from "./lib/sunset-html";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -30,20 +31,41 @@ app.prepare().then(() => {
             ((req.headers["x-forwarded-for"] || "") as string).split(",")[0].trim() ||
             req.socket.remoteAddress ||
             "unknown";
-          recordHit({
-            domain_id: resolved.domain_id,
-            ip,
-            user_agent: (req.headers["user-agent"] as string) || null,
-            referer: (req.headers["referer"] as string) || null,
-            path: req.url || null,
-          }).catch(() => {});
+          const ua = (req.headers["user-agent"] as string) || null;
+          if (shouldRecord(req.method || "GET", req.url || "/", ua)) {
+            recordHit({
+              domain_id: resolved.domain_id,
+              ip,
+              user_agent: ua,
+              referer: (req.headers["referer"] as string) || null,
+              path: req.url || null,
+            }).catch(() => {});
+          }
+
+          // Sunset notice: serve interstitial unless user clicked "Weiter" (?nr_continue=1)
+          const reqPath = req.url || "/";
+          const isContinue = parsedUrl.query?.nr_continue === "1";
+          if (resolved.sunset && !isContinue) {
+            const html = renderSunsetPage({
+              domain: resolved.domain,
+              target: resolved.target_url,
+              preservePath: resolved.preserve_path,
+              reqPath,
+              cfg: resolved.sunset,
+            });
+            res.writeHead(200, {
+              "Content-Type": "text/html; charset=utf-8",
+              "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            });
+            res.end(html);
+            return;
+          }
 
           const target = resolved.preserve_path
             ? resolved.target_url + (parsedUrl.path || "")
             : resolved.target_url;
           res.writeHead(resolved.redirect_code || 302, {
             Location: target,
-            // Forbid caching so every hit reaches us for analytics.
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
             Pragma: "no-cache",
             Expires: "0",

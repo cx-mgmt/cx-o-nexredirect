@@ -6,12 +6,21 @@ import { getDb, type DomainRow } from "@/lib/db";
 import { reloadCaddy } from "@/lib/caddy";
 import { invalidateRedirectCache } from "@/lib/redirect-resolver";
 
+const sunsetSchema = z.object({
+  enabled: z.boolean(),
+  title: z.string().max(200).optional(),
+  message: z.string().max(2000).optional(),
+  button_label: z.string().max(50).optional(),
+  sunset_date: z.string().max(50).optional(),
+});
+
 const updateSchema = z.object({
   target_url: z.string().url().nullable().optional(),
   group_id: z.number().int().nullable().optional(),
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).optional(),
   preserve_path: z.boolean().optional(),
   include_www: z.boolean().optional(),
+  sunset_config: sunsetSchema.nullable().optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +52,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (key === "preserve_path" || key === "include_www") {
       fields.push(`${key} = ?`);
       values.push(val ? 1 : 0);
+    } else if (key === "sunset_config") {
+      fields.push(`sunset_config = ?`);
+      values.push(val === null ? null : JSON.stringify(val));
     } else {
       fields.push(`${key} = ?`);
       values.push(val);

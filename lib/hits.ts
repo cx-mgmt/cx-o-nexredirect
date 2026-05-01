@@ -1,6 +1,18 @@
 import { getDb, hashIp } from "./db";
 import { lookupCountry } from "./geo";
 
+// Patterns we don't want polluting analytics
+const BOT_UA = /bot|crawl|spider|slurp|curl|wget|httpclient|python-requests|axios|node-fetch|monitor|uptime|pingdom|datadog|prometheus|scanner|fetch|preview|whatsapp|telegrambot|facebookexternalhit|linkedinbot|twitterbot|discordbot|skypeuripreview|mastodon|matrix-bot|preconnect|dnsperf|sentry|newrelic|gtmetrix|lighthouse|headlesschrome|phantomjs|puppeteer|playwright|chrome-lighthouse/i;
+const SKIP_PATHS = /^\/(favicon\.ico|robots\.txt|sitemap\.xml|apple-touch-icon[\w-]*\.png|browserconfig\.xml|\.well-known\/|ads\.txt)/i;
+
+export function shouldRecord(method: string, path: string | null, userAgent: string | null): boolean {
+  const m = (method || "GET").toUpperCase();
+  if (m === "HEAD" || m === "OPTIONS") return false;
+  if (path && SKIP_PATHS.test(path)) return false;
+  if (userAgent && BOT_UA.test(userAgent)) return false;
+  return true;
+}
+
 type PendingHit = {
   domain_id: number;
   ts: number;

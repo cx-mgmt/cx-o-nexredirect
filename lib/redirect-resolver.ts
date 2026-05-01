@@ -1,10 +1,12 @@
-import { getDb, getSetting, type DomainRow, type DomainGroupRow } from "./db";
+import { getDb, getSetting, parseSunset, type DomainRow, type DomainGroupRow, type SunsetConfig } from "./db";
 
 export type ResolvedRedirect = {
   domain_id: number;
+  domain: string;
   target_url: string;
   redirect_code: number;
   preserve_path: boolean;
+  sunset: SunsetConfig | null;
 };
 
 let cache: Map<string, ResolvedRedirect> | null = null;
@@ -23,9 +25,11 @@ function loadCache(): Map<string, ResolvedRedirect> {
     if (!target) continue;
     const r: ResolvedRedirect = {
       domain_id: d.id,
+      domain: d.domain,
       target_url: target,
       redirect_code: d.redirect_code,
       preserve_path: !!d.preserve_path,
+      sunset: parseSunset(d),
     };
     m.set(d.domain.toLowerCase(), r);
     if (d.include_www) m.set(`www.${d.domain.toLowerCase()}`, r);
