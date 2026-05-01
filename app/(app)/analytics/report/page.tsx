@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db";
-import { Logo } from "@/components/Logo";
 import { ReportClient } from "./ReportClient";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +78,6 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
         recentHits,
         generatedAt: Date.now(),
       }}
-      logo={<Logo size={48} />}
     />
   );
 }
