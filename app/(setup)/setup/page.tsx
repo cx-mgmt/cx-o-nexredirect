@@ -22,10 +22,10 @@ export default function SetupPage() {
     fetch("/api/setup")
       .then((r) => r.json())
       .then((d) => {
-        if (d.setup_complete) router.replace("/login");
+        if (d.setup_complete) window.location.replace("/login");
         else setChecked(true);
       });
-  }, [router]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,10 +50,9 @@ export default function SetupPage() {
         setError(d.error || "Setup fehlgeschlagen.");
         return;
       }
-      router.replace("/login");
+      window.location.href = "/login";
     } catch {
       setError("Verbindungsfehler.");
-    } finally {
       setLoading(false);
     }
   }
