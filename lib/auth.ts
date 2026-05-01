@@ -22,7 +22,7 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "E-Mail", type: "email" },
+        email: { label: "E-Mail oder Benutzername", type: "text" },
         password: { label: "Passwort", type: "password" },
       },
       async authorize(credentials, req) {
@@ -37,20 +37,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const email = credentials.email.toLowerCase().trim();
-        // Per-email attempt limit: 5 in 15 minutes (slows targeted brute-force)
-        const emailLimit = checkLimit(`login:email:${email}`, 5, 15 * 60 * 1000);
-        if (!emailLimit.allowed) {
+        const identifier = credentials.email.toLowerCase().trim();
+        const idLimit = checkLimit(`login:id:${identifier}`, 5, 15 * 60 * 1000);
+        if (!idLimit.allowed) {
           await new Promise((r) => setTimeout(r, 1500));
           return null;
         }
 
+        // Match by email OR username
         const user = getDb()
-          .prepare("SELECT id, email, password_hash, role, created_at FROM users WHERE email = ? LIMIT 1")
-          .get(email) as UserRow | undefined;
+          .prepare("SELECT id, email, username, password_hash, role, created_at FROM users WHERE email = ? OR username = ? LIMIT 1")
+          .get(identifier, identifier) as UserRow | undefined;
 
         if (!user) {
-          // Constant-time delay to prevent user-enumeration timing
           await new Promise((r) => setTimeout(r, 200));
           return null;
         }
@@ -60,7 +59,7 @@ export const authOptions: NextAuthOptions = {
         return {
           id: String(user.id),
           email: user.email,
-          name: user.email,
+          name: user.username || user.email,
           role: user.role,
         };
       },

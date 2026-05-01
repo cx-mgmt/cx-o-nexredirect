@@ -236,6 +236,7 @@ export type DomainGroupRow = {
 export type UserRow = {
   id: number;
   email: string;
+  username: string | null;
   password_hash: string;
   role: string;
   created_at: number;

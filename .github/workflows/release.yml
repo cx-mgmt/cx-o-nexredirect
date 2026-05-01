@@ -31,9 +31,17 @@ jobs:
           tar -czf "nexredirect-next-${TAG}.tar.gz" .next
           ls -lh "nexredirect-next-${TAG}.tar.gz"
 
+      - name: Compute SHA256
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          sha256sum "nexredirect-next-${TAG}.tar.gz" > "nexredirect-checksums-${TAG}.txt"
+          cat "nexredirect-checksums-${TAG}.txt"
+
       - name: Attach to release
         uses: softprops/action-gh-release@v2
         with:
-          files: nexredirect-next-*.tar.gz
+          files: |
+            nexredirect-next-*.tar.gz
+            nexredirect-checksums-*.txt
           tag_name: ${{ github.ref_name }}
           fail_on_unmatched_files: true

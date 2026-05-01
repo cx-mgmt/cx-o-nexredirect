@@ -81,17 +81,33 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR" "$DATA_DIR"
 echo "==> Dependencies installieren"
 sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && npm ci --no-audit --no-fund"
 
-echo "==> Prebuilt .next/ versuchen"
+echo "==> Prebuilt .next/ versuchen (SHA256-verifiziert)"
 PREBUILT_OK=0
 if [[ -n "$TARGET_TAG" ]]; then
   ASSET_URL="https://github.com/${REPO}/releases/download/${TARGET_TAG}/nexredirect-next-${TARGET_TAG}.tar.gz"
+  CHECKSUM_URL="https://github.com/${REPO}/releases/download/${TARGET_TAG}/nexredirect-checksums-${TARGET_TAG}.txt"
   if curl -fsSL -o /tmp/next-build.tgz "$ASSET_URL" 2>/dev/null; then
-    sudo -u "$SERVICE_USER" -H tar -xzf /tmp/next-build.tgz -C "$INSTALL_DIR"
+    VERIFIED=0
+    if curl -fsSL -o /tmp/next-checksums.txt "$CHECKSUM_URL" 2>/dev/null; then
+      EXPECTED=$(awk '{print $1}' /tmp/next-checksums.txt | head -n1)
+      ACTUAL=$(sha256sum /tmp/next-build.tgz | awk '{print $1}')
+      if [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]]; then
+        VERIFIED=1
+        echo "    SHA256 verifiziert."
+      else
+        echo "    ⚠ SHA256-Mismatch — verwerfe Prebuilt."
+      fi
+      rm -f /tmp/next-checksums.txt
+    fi
+    if [[ $VERIFIED -eq 1 ]]; then
+      sudo -u "$SERVICE_USER" -H tar -xzf /tmp/next-build.tgz -C "$INSTALL_DIR"
+      PREBUILT_OK=1
+      echo "    Prebuilt aus Release übernommen — Build übersprungen."
+    fi
     rm -f /tmp/next-build.tgz
-    PREBUILT_OK=1
-    echo "    Prebuilt aus Release übernommen — Build übersprungen."
-  else
-    echo "    Kein Prebuilt für $TARGET_TAG — baue lokal."
+  fi
+  if [[ $PREBUILT_OK -eq 0 ]]; then
+    echo "    Kein verifiziertes Prebuilt für $TARGET_TAG — baue lokal."
   fi
 fi
 if [[ $PREBUILT_OK -eq 0 ]]; then

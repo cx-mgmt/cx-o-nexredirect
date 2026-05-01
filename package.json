@@ -1,6 +1,6 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "license": "MIT",
   "overrides": {
     "postcss": "^8.5.13",
@@ -18,6 +18,7 @@
     "@radix-ui/react-label": "^2.1.2",
     "@radix-ui/react-slot": "^1.2.0",
     "@radix-ui/react-tooltip": "^1.1.8",
+    "@types/nodemailer": "^8.0.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.5.0",
     "class-variance-authority": "^0.7.1",
@@ -26,6 +27,7 @@
     "maxmind": "^4.3.20",
     "next": "^15.5.15",
     "next-auth": "^4.24.14",
+    "nodemailer": "^7.0.13",
     "puppeteer-core": "^24.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

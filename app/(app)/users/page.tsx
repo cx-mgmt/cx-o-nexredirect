@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PasswordField } from "@/components/PasswordField";
 
-type U = { id: number; email: string; role: "admin" | "user"; created_at: number };
+type U = { id: number; email: string; username: string | null; role: "admin" | "user"; created_at: number };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<U[]>([]);
@@ -18,6 +18,7 @@ export default function UsersPage() {
   const [forbidden, setForbidden] = useState(false);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [pwdValid, setPwdValid] = useState(false);
@@ -46,10 +47,10 @@ export default function UsersPage() {
     setBusy(true);
     setErr("");
     try {
-      const r = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, role }) });
+      const r = await fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, username: username.trim() || undefined, password, role }) });
       const d = await r.json();
       if (!r.ok) { setErr(d.reason || d.error || "Fehler"); return; }
-      setEmail(""); setPassword(""); setPassword2(""); setRole("user");
+      setEmail(""); setUsername(""); setPassword(""); setPassword2(""); setRole("user");
       setOpen(false);
       load();
     } finally { setBusy(false); }
@@ -104,6 +105,11 @@ export default function UsersPage() {
               <DialogHeader><DialogTitle>Neuer Benutzer</DialogTitle><DialogDescription>Account anlegen.</DialogDescription></DialogHeader>
               <form onSubmit={create} className="space-y-3">
                 <div className="space-y-1"><Label>E-Mail</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                <div className="space-y-1">
+                  <Label>Benutzername <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="z.B. hendrik" pattern="[a-zA-Z0-9_-]+" minLength={3} maxLength={40} />
+                  <p className="text-[11px] text-muted-foreground">Login mit Username möglich. Buchstaben/Ziffern/-_, 3–40 Zeichen.</p>
+                </div>
                 <PasswordField value={password} onChange={setPassword} onValidationChange={(v) => setPwdValid(!!v.ok)} />
                 <div className="space-y-1">
                   <Label htmlFor="pw2">Passwort wiederholen</Label>
@@ -138,6 +144,7 @@ export default function UsersPage() {
                 <thead className="border-b border-zinc-800/70 text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="px-6 py-3 text-left">E-Mail</th>
+                    <th className="px-6 py-3 text-left">Benutzername</th>
                     <th className="px-6 py-3 text-left">Rolle</th>
                     <th className="px-6 py-3 text-left">Erstellt</th>
                     <th className="px-6 py-3 text-right"></th>
@@ -147,6 +154,7 @@ export default function UsersPage() {
                   {users.map((u) => (
                     <tr key={u.id}>
                       <td className="px-6 py-3">{u.email}</td>
+                      <td className="px-6 py-3 font-mono text-xs">{u.username || "—"}</td>
                       <td className="px-6 py-3">
                         {u.role === "admin"
                           ? <Badge variant="green"><Shield className="mr-1 h-3 w-3" />admin</Badge>

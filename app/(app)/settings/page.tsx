@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2 } from "lucide-react";
+import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2, Mail, Send } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,20 +34,51 @@ export default function SettingsPage() {
   const [accountId, setAccountId] = useState("");
   const [installingGeo, setInstallingGeo] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
+  const [smtp, setSmtp] = useState<{ smtp_host: string; smtp_port: string; smtp_user: string; smtp_password: string; smtp_from: string; smtp_secure: string }>({ smtp_host: "", smtp_port: "587", smtp_user: "", smtp_password: "", smtp_from: "", smtp_secure: "false" });
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpTestTo, setSmtpTestTo] = useState("");
+  const [smtpTestBusy, setSmtpTestBusy] = useState(false);
+  const [smtpTestMsg, setSmtpTestMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function load() {
-    const [s, u, g] = await Promise.all([
+    const [s, u, g, m] = await Promise.all([
       fetch("/api/settings").then((r) => r.json()),
       fetch("/api/update/check").then((r) => r.json()),
       fetch("/api/settings/geo").then((r) => r.json()),
+      fetch("/api/settings/smtp").then((r) => r.json()),
     ]);
     setSettings(s);
     setStatus(u);
     setGeo(g);
+    setSmtp({
+      smtp_host: m.smtp_host || "",
+      smtp_port: m.smtp_port || "587",
+      smtp_user: m.smtp_user || "",
+      smtp_password: m.smtp_password || "",
+      smtp_from: m.smtp_from || "",
+      smtp_secure: m.smtp_secure || "false",
+    });
+  }
+
+  async function saveSmtp() {
+    setSmtpSaving(true);
+    try {
+      await fetch("/api/settings/smtp", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(smtp) });
+    } finally { setSmtpSaving(false); }
+  }
+
+  async function sendTestMail() {
+    setSmtpTestBusy(true);
+    setSmtpTestMsg("");
+    try {
+      const r = await fetch("/api/settings/smtp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: smtpTestTo || undefined }) });
+      const d = await r.json();
+      setSmtpTestMsg(d.ok ? "Test-Mail verschickt." : `Fehler: ${d.error}`);
+    } finally { setSmtpTestBusy(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -330,6 +361,62 @@ export default function SettingsPage() {
               </div>
             )}
             {geoMsg && <p className="text-xs text-muted-foreground">{geoMsg}</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />SMTP / E-Mail
+              {smtp.smtp_host
+                ? <Badge variant="green"><CheckCircle2 className="mr-1 h-3 w-3" />konfiguriert</Badge>
+                : <Badge variant="zinc">nicht konfiguriert</Badge>}
+            </CardTitle>
+            <CardDescription>Für Passwort-Reset-Mails. Postfix/Sendgrid/Mailgun/Hetzner-SMTP — alles was speaks SMTP.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">SMTP-Host</Label>
+                <Input value={smtp.smtp_host} onChange={(e) => setSmtp({ ...smtp, smtp_host: e.target.value })} placeholder="smtp.example.com" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Port</Label>
+                <Input type="number" value={smtp.smtp_port} onChange={(e) => setSmtp({ ...smtp, smtp_port: e.target.value })} placeholder="587" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Username</Label>
+                <Input value={smtp.smtp_user} onChange={(e) => setSmtp({ ...smtp, smtp_user: e.target.value })} autoComplete="off" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Passwort</Label>
+                <Input type="password" value={smtp.smtp_password} onChange={(e) => setSmtp({ ...smtp, smtp_password: e.target.value })} autoComplete="new-password" placeholder={smtp.smtp_password === "***" ? "(unverändert)" : ""} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">From-Adresse</Label>
+              <Input value={smtp.smtp_from} onChange={(e) => setSmtp({ ...smtp, smtp_from: e.target.value })} placeholder='"NexRedirect" <noreply@example.com>' />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={smtp.smtp_secure === "true"} onChange={(e) => setSmtp({ ...smtp, smtp_secure: e.target.checked ? "true" : "false" })} />
+              TLS direkt (Port 465). Sonst STARTTLS auf 587.
+            </label>
+            <div className="flex gap-2">
+              <Button onClick={saveSmtp} size="sm" disabled={smtpSaving}>
+                {smtpSaving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                Speichern
+              </Button>
+              <div className="flex flex-1 gap-2">
+                <Input placeholder="Test-Empfänger (leer = eigene)" value={smtpTestTo} onChange={(e) => setSmtpTestTo(e.target.value)} />
+                <Button onClick={sendTestMail} variant="outline" size="sm" disabled={smtpTestBusy || !smtp.smtp_host}>
+                  {smtpTestBusy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Send className="mr-2 h-3 w-3" />}
+                  Test
+                </Button>
+              </div>
+            </div>
+            {smtpTestMsg && <p className="text-xs text-muted-foreground">{smtpTestMsg}</p>}
           </CardContent>
         </Card>
       </div>
