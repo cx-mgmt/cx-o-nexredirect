@@ -84,4 +84,4 @@ Setup unter `http://localhost:3000/setup`.
 
 ## Lizenz
 
-Internal — © CoreX Management
+[MIT](LICENSE) — viel Spaß damit.

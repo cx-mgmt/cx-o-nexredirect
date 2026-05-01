@@ -1,7 +1,7 @@
 {
   "name": "corex-nexredirect",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "next build",
