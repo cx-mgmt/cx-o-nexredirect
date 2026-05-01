@@ -15,10 +15,16 @@ export function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    fetch("/api/update/check")
-      .then((r) => r.json())
-      .then(setInfo)
-      .catch(() => {});
+    let cancelled = false;
+    function load() {
+      fetch("/api/update/check", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((d) => { if (!cancelled) setInfo(d); })
+        .catch(() => {});
+    }
+    load();
+    const id = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
   }, []);
 
   if (!info?.update_available || dismissed) return null;

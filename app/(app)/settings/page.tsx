@@ -95,16 +95,38 @@ export default function SettingsPage() {
     setChecking(false);
   }
 
+  async function waitForServerBack() {
+    for (let i = 0; i < 60; i++) {
+      try {
+        const r = await fetch("/api/v1/health", { cache: "no-store" });
+        if (r.ok) return true;
+      } catch {}
+      await new Promise((res) => setTimeout(res, 1000));
+    }
+    return false;
+  }
+
   async function applyNow() {
     if (!confirm(`Update auf ${status?.latest} jetzt installieren?\n\nDer Server wird neu gestartet (kurze Downtime der Admin-UI). Redirects bleiben über Caddy aktiv.`)) return;
     setApplying(true);
-    setMsg("");
+    setMsg("Update läuft — bitte warten...");
     try {
       const r = await fetch("/api/update/apply", { method: "POST" });
-      const d = await r.json();
-      setMsg(d.ok ? `Update erfolgreich: ${d.from} → ${d.to}` : `Fehler: ${d.error}`);
-      load();
-    } finally {
+      let d: { ok?: boolean; from?: string; to?: string; error?: string } = {};
+      try { d = await r.json(); } catch {}
+      if (!r.ok || d.error) {
+        setMsg(`Fehler: ${d.error || r.statusText}`);
+        setApplying(false);
+        return;
+      }
+      setMsg(`Update gezogen (${d.from} → ${d.to}). Server startet neu...`);
+      // Wait for restart, then hard-reload to drop all client cache
+      await new Promise((res) => setTimeout(res, 3000));
+      const back = await waitForServerBack();
+      setMsg(back ? "Server zurück. Lade Seite neu..." : "Restart dauert ungewöhnlich lang. Trotzdem neu laden.");
+      window.location.reload();
+    } catch (e) {
+      setMsg(`Fehler: ${e instanceof Error ? e.message : String(e)}`);
       setApplying(false);
     }
   }
@@ -130,18 +152,27 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={check} variant="outline" size="sm" disabled={checking}>
+              <Button onClick={check} variant="outline" size="sm" disabled={checking || applying}>
                 {checking ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCcw className="mr-2 h-3 w-3" />}
                 Jetzt prüfen
               </Button>
-              {status.update_available && (
+              {status.update_available && !applying && (
                 <Button onClick={applyNow} size="sm" disabled={applying}>
-                  {applying ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <ArrowUpCircle className="mr-2 h-3 w-3" />}
+                  <ArrowUpCircle className="mr-2 h-3 w-3" />
                   Update {status.latest} installieren
                 </Button>
               )}
+              {!status.update_available && !applying && (
+                <span className="text-xs text-green-400">✓ Aktuelle Version</span>
+              )}
               {status.release_url && <a href={status.release_url} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline">Release-Notes →</a>}
             </div>
+            {applying && (
+              <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>{msg || "Update läuft..."}</span>
+              </div>
+            )}
             <div className="space-y-2 pt-2">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={settings.update_auto === "true"} onChange={(e) => save({ update_auto: e.target.checked ? "true" : "false" })} disabled={saving} />
@@ -152,7 +183,7 @@ export default function SettingsPage() {
                 Pre-Releases einbeziehen
               </label>
             </div>
-            {msg && <p className="text-xs text-muted-foreground">{msg}</p>}
+            {msg && !applying && <p className="text-xs text-muted-foreground">{msg}</p>}
             {status.last_check && <p className="text-xs text-muted-foreground">Letzte Prüfung: {new Date(status.last_check).toLocaleString("de-DE")}</p>}
           </CardContent>
         </Card>

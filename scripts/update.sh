@@ -50,5 +50,11 @@ fi
 ln -sf "$INSTALL_DIR/bin/nexredirect" /usr/local/bin/nexredirect
 chmod +x "$INSTALL_DIR/bin/nexredirect" 2>/dev/null || true
 
-systemctl restart corex-nexredirect
-echo "Update auf $(sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git describe --tags --always") abgeschlossen"
+VERSION=$(sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git describe --tags --always")
+echo "Update auf $VERSION abgeschlossen — Restart wird in 2s ausgelöst"
+
+# Detach restart so this process can return cleanly to the API caller
+# (the API can then respond before its own service gets killed).
+( sleep 2 && systemctl restart corex-nexredirect ) >/dev/null 2>&1 &
+disown
+exit 0

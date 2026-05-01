@@ -83,10 +83,13 @@ export async function checkForUpdate(): Promise<UpdateStatus> {
 }
 
 export function getUpdateStatus(): UpdateStatus {
+  const current = pkg.version;
+  const latest = getSetting("latest_version") || null;
+  const update_available = !!latest && cmpVersions(current, latest) < 0;
   return {
-    current: pkg.version,
-    latest: getSetting("latest_version") || null,
-    update_available: getSetting("update_available") === "true",
+    current,
+    latest,
+    update_available,
     release_url: getSetting("update_release_url") || undefined,
     last_check: Number(getSetting("update_last_check") || 0) || undefined,
     auto_update: getSetting("update_auto") === "true",
