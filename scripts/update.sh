@@ -15,6 +15,11 @@ cd "$INSTALL_DIR"
 chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
+# Sicherstellen dass sqlite3 für die CLI da ist (idempotent, keine Fehler wenn schon da)
+if ! command -v sqlite3 >/dev/null 2>&1; then
+  apt-get install -y -qq sqlite3 >/dev/null 2>&1 || true
+fi
+
 if [[ -z "$TAG" ]]; then
   TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
     | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || true)

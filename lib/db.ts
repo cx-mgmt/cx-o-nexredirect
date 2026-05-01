@@ -91,6 +91,25 @@ function ensureSchema(db: Database.Database) {
       log TEXT
     );
   `);
+
+  runMigrations(db);
+}
+
+function getSettingDirect(db: Database.Database, key: string): string | null {
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+function setSettingDirect(db: Database.Database, key: string, value: string) {
+  db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
+}
+
+function runMigrations(db: Database.Database) {
+  // m_301_to_302: switch existing 301-redirects to 302 so browser-cache stops eating hits.
+  if (getSettingDirect(db, "m_301_to_302") !== "done") {
+    db.prepare("UPDATE domains SET redirect_code = 302 WHERE redirect_code = 301").run();
+    db.prepare("UPDATE domain_groups SET redirect_code = 302 WHERE redirect_code = 301").run();
+    setSettingDirect(db, "m_301_to_302", "done");
+  }
 }
 
 export function getSetting(key: string): string | null {

@@ -103,26 +103,36 @@ cmd_caddy() {
   esac
 }
 
+ensure_sqlite() {
+  if command -v sqlite3 >/dev/null 2>&1; then return 0; fi
+  if [[ $EUID -eq 0 ]]; then
+    echo "==> sqlite3 wird installiert..."
+    apt-get install -y -qq sqlite3 >/dev/null 2>&1 && return 0
+  fi
+  echo "sqlite3 nicht installiert. Bitte ausführen: sudo apt install -y sqlite3" >&2
+  return 1
+}
+
 cmd_db() {
-  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert: apt install -y sqlite3"; exit 1; }
+  ensure_sqlite || exit 1
   sqlite3 -header -column "$DB"
 }
 
 cmd_domains() {
-  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert"; exit 1; }
+  ensure_sqlite || exit 1
   sqlite3 -header -column "$DB" \
     "SELECT id, domain, status, redirect_code AS code, COALESCE(target_url, (SELECT target_url FROM domain_groups g WHERE g.id = d.group_id), '—') AS target FROM domains d ORDER BY created_at DESC;"
 }
 
 cmd_hits() {
-  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert"; exit 1; }
+  ensure_sqlite || exit 1
   local n="${1:-20}"
   sqlite3 -header -column "$DB" \
     "SELECT datetime(ts/1000,'unixepoch','localtime') AS time, (SELECT domain FROM domains WHERE id = h.domain_id) AS domain, country, substr(path,1,40) AS path FROM hits h ORDER BY ts DESC LIMIT $n;"
 }
 
 cmd_tokens() {
-  command -v sqlite3 >/dev/null || { echo "sqlite3 nicht installiert"; exit 1; }
+  ensure_sqlite || exit 1
   sqlite3 -header -column "$DB" \
     "SELECT id, name, scopes, datetime(created_at/1000,'unixepoch','localtime') AS created, CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END AS status FROM api_tokens ORDER BY id DESC;"
 }
