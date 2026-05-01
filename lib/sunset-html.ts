@@ -16,12 +16,11 @@ export function renderSunsetPage(opts: {
   const button = opts.cfg.button_label || "Weiter";
   const date = opts.cfg.sunset_date ? `Geplante Abschaltung: ${opts.cfg.sunset_date}` : "";
 
-  const continueUrl = (() => {
-    const sep = opts.target.includes("?") ? "&" : "?";
-    const base = opts.preservePath ? opts.target + (opts.reqPath || "") : opts.target;
-    // Avoid mangling paths that already have query — only append nothing extra; just go to target as-is
-    return base;
-  })();
+  // Continue link points back at OUR domain with nr_continue=1 — server.ts then skips the
+  // sunset interstitial and serves the actual redirect.
+  const path = opts.reqPath || "/";
+  const sep = path.includes("?") ? "&" : "?";
+  const continueUrl = `${path}${sep}nr_continue=1`;
 
   return `<!doctype html>
 <html lang="de">
@@ -77,7 +76,7 @@ export function renderSunsetPage(opts: {
     <h1>${esc(title)}</h1>
     <p>${esc(message)}</p>
     ${date ? `<p class="date">${esc(date)}</p>` : ""}
-    <a class="continue" href="${esc(continueUrl)}?nr_continue=1">${esc(button)}</a>
+    <a class="continue" href="${esc(continueUrl)}">${esc(button)}</a>
     <p class="domain">${esc(opts.domain)} → ${esc(opts.target)}</p>
   </div>
 </body>
