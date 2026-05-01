@@ -12,15 +12,16 @@ SERVICE_USER="nexredirect"
 cd "$INSTALL_DIR"
 
 chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
-git fetch --tags --quiet
+chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+
 if [[ -n "$TAG" ]]; then
-  git checkout --quiet "$TAG"
+  sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git fetch --tags --quiet && git checkout --quiet '$TAG'"
 else
-  git pull --ff-only --quiet
+  sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git fetch --quiet && git pull --ff-only --quiet"
 fi
 
 sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && npm ci --no-audit --no-fund"
 sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && npm run build"
 
 systemctl restart corex-nexredirect
-echo "Update auf $(git describe --tags --always) abgeschlossen"
+echo "Update auf $(sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git describe --tags --always") abgeschlossen"
