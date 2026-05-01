@@ -47,12 +47,29 @@ sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && npm ci --no-audit --no-
 PREBUILT_OK=0
 if [[ -n "$TAG" ]]; then
   ASSET_URL="https://github.com/${REPO}/releases/download/${TAG}/nexredirect-next-${TAG}.tar.gz"
+  CHECKSUM_URL="https://github.com/${REPO}/releases/download/${TAG}/nexredirect-checksums-${TAG}.txt"
   if curl -fsSL -o /tmp/next-build.tgz "$ASSET_URL" 2>/dev/null; then
-    rm -rf "$INSTALL_DIR/.next"
-    sudo -u "$SERVICE_USER" -H tar -xzf /tmp/next-build.tgz -C "$INSTALL_DIR"
+    VERIFIED=0
+    if curl -fsSL -o /tmp/next-checksums.txt "$CHECKSUM_URL" 2>/dev/null; then
+      EXPECTED=$(awk '{print $1}' /tmp/next-checksums.txt | head -n1)
+      ACTUAL=$(sha256sum /tmp/next-build.tgz | awk '{print $1}')
+      if [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]]; then
+        VERIFIED=1
+        echo "==> SHA256 verifiziert"
+      else
+        echo "==> ⚠ SHA256-Mismatch — verwerfe Prebuilt"
+      fi
+      rm -f /tmp/next-checksums.txt
+    else
+      echo "==> ⚠ Kein Checksum-File für $TAG — überspringe Prebuilt"
+    fi
+    if [[ $VERIFIED -eq 1 ]]; then
+      rm -rf "$INSTALL_DIR/.next"
+      sudo -u "$SERVICE_USER" -H tar -xzf /tmp/next-build.tgz -C "$INSTALL_DIR"
+      PREBUILT_OK=1
+      echo "==> Prebuilt .next/ aus Release übernommen"
+    fi
     rm -f /tmp/next-build.tgz
-    PREBUILT_OK=1
-    echo "==> Prebuilt .next/ aus Release übernommen"
   fi
 fi
 if [[ $PREBUILT_OK -eq 0 ]]; then
