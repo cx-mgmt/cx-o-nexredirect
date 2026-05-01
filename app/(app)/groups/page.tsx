@@ -89,9 +89,9 @@ export default function GroupsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="code">Status-Code</Label>
-                  <select id="code" value={code} onChange={(e) => setCode(Number(e.target.value) as 301 | 302)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm">
-                    <option value={301}>301 Permanent</option>
-                    <option value={302}>302 Temporär</option>
+                  <select id="code" value={code} onChange={(e) => setCode(Number(e.target.value) as 301 | 302)} className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 py-1 text-sm text-zinc-100">
+                    <option value={301} className="bg-zinc-900 text-zinc-100">301 Permanent</option>
+                    <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär</option>
                   </select>
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}

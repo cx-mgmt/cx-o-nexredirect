@@ -23,6 +23,15 @@ async function getReader(): Promise<Reader | null> {
   }
 }
 
+export function resetGeoReader() {
+  _reader = null;
+  _loadAttempted = false;
+}
+
+export function geoStatus(): { available: boolean; path: string } {
+  return { available: fs.existsSync(MMDB_PATH), path: MMDB_PATH };
+}
+
 export async function lookupCountry(ip: string): Promise<string | null> {
   const r = await getReader();
   if (!r) return null;

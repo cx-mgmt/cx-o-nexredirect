@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Copy, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
+import { Loader2, Copy, Check, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { copyToClipboard } from "@/lib/clipboard";
 
 type Group = { id: number; name: string; target_url: string };
 
@@ -132,11 +133,11 @@ export default function NewDomainPage() {
                       required
                       value={groupId}
                       onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : "")}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 py-1 text-sm text-zinc-100 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      <option value="">— wählen —</option>
+                      <option value="" className="bg-zinc-900 text-zinc-100">— wählen —</option>
                       {groups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name} → {g.target_url}</option>
+                        <option key={g.id} value={g.id} className="bg-zinc-900 text-zinc-100">{g.name} → {g.target_url}</option>
                       ))}
                     </select>
                   </div>
@@ -149,10 +150,10 @@ export default function NewDomainPage() {
                       id="code"
                       value={redirectCode}
                       onChange={(e) => setRedirectCode(Number(e.target.value) as 301 | 302)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                      className="flex h-9 w-full rounded-md border border-input bg-zinc-950 px-3 py-1 text-sm text-zinc-100"
                     >
-                      <option value={301}>301 Permanent</option>
-                      <option value={302}>302 Temporär</option>
+                      <option value={301} className="bg-zinc-900 text-zinc-100">301 Permanent</option>
+                      <option value={302} className="bg-zinc-900 text-zinc-100">302 Temporär</option>
                     </select>
                   </div>
                   <div className="flex items-end gap-4">
@@ -266,41 +267,61 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
 
 function DnsRecordsTable({ domain, ipv4, ipv6, includeWww }: { domain: string; ipv4?: string; ipv6?: string; includeWww: boolean }) {
   const records = [
-    { type: "A", name: domain, value: ipv4 || "<server-IP>" },
-    ...(ipv6 ? [{ type: "AAAA", name: domain, value: ipv6 }] : []),
-    ...(includeWww ? [{ type: "A", name: `www.${domain}`, value: ipv4 || "<server-IP>" }] : []),
+    { type: "A", name: "@", note: `(Root: ${domain})`, value: ipv4 || "<server-IP>" },
+    ...(ipv6 ? [{ type: "AAAA", name: "@", note: `(Root: ${domain})`, value: ipv6 }] : []),
+    ...(includeWww ? [{ type: "A", name: "www", note: `(www.${domain})`, value: ipv4 || "<server-IP>" }] : []),
   ];
 
+  const [copied, setCopied] = useState<number | null>(null);
+  async function copy(idx: number, val: string) {
+    const ok = await copyToClipboard(val);
+    if (ok) {
+      setCopied(idx);
+      setTimeout(() => setCopied(null), 1500);
+    } else {
+      alert("Kopieren fehlgeschlagen — bitte manuell markieren und kopieren.");
+    }
+  }
+
   return (
-    <div className="overflow-hidden rounded-md border">
-      <table className="w-full text-sm">
-        <thead className="border-b bg-zinc-900/40 text-xs uppercase tracking-wider text-muted-foreground">
-          <tr>
-            <th className="px-4 py-2 text-left font-medium">Typ</th>
-            <th className="px-4 py-2 text-left font-medium">Name</th>
-            <th className="px-4 py-2 text-left font-medium">Wert</th>
-            <th className="px-4 py-2"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-800/70">
-          {records.map((r, i) => (
-            <tr key={i}>
-              <td className="px-4 py-2"><Badge variant="zinc">{r.type}</Badge></td>
-              <td className="px-4 py-2 font-mono text-xs">{r.name}</td>
-              <td className="px-4 py-2 font-mono text-xs">{r.value}</td>
-              <td className="px-4 py-2 text-right">
-                <button
-                  onClick={() => navigator.clipboard?.writeText(r.value)}
-                  className="rounded p-1 text-zinc-500 hover:text-zinc-200"
-                  title="Wert kopieren"
-                >
-                  <Copy className="h-3 w-3" />
-                </button>
-              </td>
+    <div className="space-y-2">
+      <div className="overflow-hidden rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="border-b bg-zinc-900/40 text-xs uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2 text-left font-medium">Typ</th>
+              <th className="px-4 py-2 text-left font-medium">Name</th>
+              <th className="px-4 py-2 text-left font-medium">Wert</th>
+              <th className="px-4 py-2"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-zinc-800/70">
+            {records.map((r, i) => (
+              <tr key={i}>
+                <td className="px-4 py-2"><Badge variant="zinc">{r.type}</Badge></td>
+                <td className="px-4 py-2 font-mono text-xs">
+                  <span className="text-zinc-100">{r.name}</span>
+                  <span className="ml-2 text-[10px] text-muted-foreground">{r.note}</span>
+                </td>
+                <td className="px-4 py-2 font-mono text-xs">{r.value}</td>
+                <td className="px-4 py-2 text-right">
+                  <button
+                    onClick={() => copy(i, r.value)}
+                    className="rounded p-1 text-zinc-500 hover:text-zinc-200"
+                    title="Wert kopieren"
+                    type="button"
+                  >
+                    {copied === i ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Hinweis: <code className="font-mono text-zinc-300">@</code> steht für die Root-Domain. Manche DNS-Provider erwarten stattdessen <code className="font-mono text-zinc-300">{domain}</code> oder ein leeres Feld.
+      </p>
     </div>
   );
 }

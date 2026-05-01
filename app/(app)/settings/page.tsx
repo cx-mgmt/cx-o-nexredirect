@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, ArrowUpCircle } from "lucide-react";
+import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,20 +27,55 @@ type UpdateStatus = {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const [geo, setGeo] = useState<{ available: boolean; path: string } | null>(null);
+  const [licenseKey, setLicenseKey] = useState("");
+  const [installingGeo, setInstallingGeo] = useState(false);
+  const [geoMsg, setGeoMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function load() {
-    const [s, u] = await Promise.all([
+    const [s, u, g] = await Promise.all([
       fetch("/api/settings").then((r) => r.json()),
       fetch("/api/update/check").then((r) => r.json()),
+      fetch("/api/settings/geo").then((r) => r.json()),
     ]);
     setSettings(s);
     setStatus(u);
+    setGeo(g);
   }
   useEffect(() => { load(); }, []);
+
+  async function installGeo() {
+    if (!licenseKey.trim()) return;
+    setInstallingGeo(true);
+    setGeoMsg("");
+    try {
+      const r = await fetch("/api/settings/geo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ license_key: licenseKey.trim() }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setGeoMsg("GeoLite2-DB installiert.");
+        setLicenseKey("");
+        load();
+      } else {
+        setGeoMsg(`Fehler: ${d.error || "Download fehlgeschlagen"}`);
+      }
+    } finally {
+      setInstallingGeo(false);
+    }
+  }
+
+  async function removeGeo() {
+    if (!confirm("GeoIP-DB entfernen? Geo-Lookup wird deaktiviert.")) return;
+    await fetch("/api/settings/geo", { method: "DELETE" });
+    load();
+  }
 
   async function save(patch: Partial<Settings>) {
     setSaving(true);
@@ -74,7 +109,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (!settings || !status) {
+  if (!settings || !status || !geo) {
     return <div className="flex justify-center p-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
@@ -149,6 +184,51 @@ export default function SettingsPage() {
               />
               <p className="text-[11px] text-muted-foreground">Wird von Caddy für ACME/Let&apos;s Encrypt benötigt.</p>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe2 className="h-4 w-4" />
+              GeoIP-Tracking
+              {geo.available
+                ? <Badge variant="green"><CheckCircle2 className="mr-1 h-3 w-3" />aktiv</Badge>
+                : <Badge variant="zinc">deaktiviert</Badge>}
+            </CardTitle>
+            <CardDescription>
+              MaxMind GeoLite2-Country für Land-Auflösung pro Hit. Lizenz-Key kostenlos unter <a href="https://www.maxmind.com/en/geolite2/signup" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">maxmind.com</a> generieren.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {geo.available ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">DB-Pfad: <span className="font-mono">{geo.path}</span></p>
+                <Button onClick={removeGeo} variant="destructive" size="sm">
+                  <Trash2 className="mr-2 h-3 w-3" />Entfernen
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="licenseKey">MaxMind License-Key</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="licenseKey"
+                    type="password"
+                    placeholder="xxxxxxxxxxxxxxxx"
+                    value={licenseKey}
+                    onChange={(e) => setLicenseKey(e.target.value)}
+                    disabled={installingGeo}
+                  />
+                  <Button onClick={installGeo} disabled={installingGeo || !licenseKey.trim()}>
+                    {installingGeo ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                    Installieren
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Lädt GeoLite2-Country.mmdb herunter und aktiviert Geo-Lookup.</p>
+              </div>
+            )}
+            {geoMsg && <p className="text-xs text-muted-foreground">{geoMsg}</p>}
           </CardContent>
         </Card>
       </div>
