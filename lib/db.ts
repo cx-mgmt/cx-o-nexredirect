@@ -24,6 +24,7 @@ function ensureSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
+      username TEXT,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'admin',
       created_at INTEGER NOT NULL
@@ -158,6 +159,12 @@ function runMigrations(db: Database.Database) {
     db.exec("ALTER TABLE domains ADD COLUMN sunset_config TEXT");
   }
   setSettingDirect(db, "m_sunset_column", "done");
+
+  // username column on users table
+  if (!hasColumn(db, "users", "username")) {
+    db.exec("ALTER TABLE users ADD COLUMN username TEXT");
+    try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL"); } catch {}
+  }
 }
 
 export function getSetting(key: string): string | null {

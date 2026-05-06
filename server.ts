@@ -12,7 +12,8 @@ import { recordHit, shouldRecord } from "./lib/hits";
 import { renderSunsetPage } from "./lib/sunset-html";
 import { isBlocked } from "./lib/blocklist";
 import { startJobs } from "./lib/jobs";
-import { hashIp } from "./lib/db";
+import { hashIp, getSetting } from "./lib/db";
+import { parseAllowlist, isIpAllowed } from "./lib/ip-allowlist";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -98,6 +99,25 @@ app.prepare().then(() => {
           `<!doctype html><html><head><title>Domain not configured</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div><h1>Domain nicht konfiguriert</h1><p>Diese Domain ist auf diesem Server nicht eingerichtet.</p></div></body></html>`
         );
         return;
+      }
+
+      // IP allowlist for admin UI (skips /api/v1 public API)
+      const reqPath = parsedUrl.pathname || "/";
+      if (!reqPath.startsWith("/api/v1")) {
+        const allowlist = parseAllowlist(getSetting("admin_ip_allowlist"));
+        if (allowlist.length > 0) {
+          const clientIp =
+            ((req.headers["x-forwarded-for"] || "") as string).split(",")[0].trim() ||
+            req.socket.remoteAddress ||
+            "unknown";
+          if (!isIpAllowed(clientIp, allowlist)) {
+            res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+            res.end(
+              `<!doctype html><html><head><title>403 Forbidden</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div style="text-align:center"><h1 style="color:#f87171">403 Forbidden</h1><p>Deine IP-Adresse (<code>${clientIp}</code>) ist nicht in der Zugriffsliste.</p></div></body></html>`
+            );
+            return;
+          }
+        }
       }
 
       await handle(req, res, parsedUrl);

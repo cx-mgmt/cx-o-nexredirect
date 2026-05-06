@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2, Mail, Send, Pencil, Server, Bell } from "lucide-react";
+import { Loader2, RefreshCcw, ArrowUpCircle, Globe2, CheckCircle2, Trash2, Mail, Send, Pencil, Server, Bell, ShieldCheck, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ type Settings = {
   hits_retention_days: string | null;
   webhook_url: string | null;
 };
+
+type IpAllowlist = { allowlist: string[]; my_ip: string };
 
 type UpdateStatus = {
   current: string;
@@ -41,6 +43,7 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [geo, setGeo] = useState<{ available: boolean; path: string } | null>(null);
   const [smtp, setSmtp] = useState<Smtp | null>(null);
+  const [ipAllowlist, setIpAllowlist] = useState<IpAllowlist | null>(null);
 
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -50,13 +53,15 @@ export default function SettingsPage() {
   const [smtpOpen, setSmtpOpen] = useState(false);
   const [geoOpen, setGeoOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
+  const [ipOpen, setIpOpen] = useState(false);
 
   async function load() {
-    const [s, u, g, m] = await Promise.all([
+    const [s, u, g, m, ip] = await Promise.all([
       fetch("/api/settings").then((r) => r.json()),
       fetch("/api/update/check").then((r) => r.json()),
       fetch("/api/settings/geo").then((r) => r.json()),
       fetch("/api/settings/smtp").then((r) => r.json()),
+      fetch("/api/settings/ip-allowlist").then((r) => r.json()),
     ]);
     setSettings(s);
     setStatus(u);
@@ -69,6 +74,7 @@ export default function SettingsPage() {
       smtp_from: m.smtp_from || "",
       smtp_secure: m.smtp_secure || "false",
     });
+    setIpAllowlist(ip as IpAllowlist);
   }
   useEffect(() => { load(); }, []);
 
@@ -119,7 +125,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (!settings || !status || !geo || !smtp) {
+  if (!settings || !status || !geo || !smtp || !ipAllowlist) {
     return <div className="flex justify-center p-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
@@ -238,6 +244,32 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* IP-Allowlist */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />IP-Zugriffsbeschränkung
+              {ipAllowlist.allowlist.length > 0
+                ? <Badge variant="green"><CheckCircle2 className="mr-1 h-3 w-3" />{ipAllowlist.allowlist.length} Einträge</Badge>
+                : <Badge variant="zinc">offen</Badge>}
+            </CardTitle>
+            <CardDescription>Admin-UI nur für bestimmte IPs / CIDR-Bereiche</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Row k="Deine IP"><span className="font-mono text-xs">{ipAllowlist.my_ip}</span></Row>
+            {ipAllowlist.allowlist.length > 0 ? (
+              <Row k="Freigegeben">
+                <span className="font-mono text-xs text-right">{ipAllowlist.allowlist.slice(0, 2).join(", ")}{ipAllowlist.allowlist.length > 2 ? ` +${ipAllowlist.allowlist.length - 2}` : ""}</span>
+              </Row>
+            ) : (
+              <p className="text-xs text-muted-foreground">Kein Filter — alle IPs haben Zugriff.</p>
+            )}
+            <Button onClick={() => setIpOpen(true)} variant="outline" size="sm" className="w-full">
+              <Pencil className="mr-2 h-3 w-3" />Bearbeiten
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Benachrichtigungen / Retention */}
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -258,6 +290,7 @@ export default function SettingsPage() {
       <SmtpDialog open={smtpOpen} onClose={() => setSmtpOpen(false)} initial={smtp} onSaved={load} />
       <GeoDialog open={geoOpen} onClose={() => setGeoOpen(false)} status={geo} onChanged={load} />
       <NotifyDialog open={notifyOpen} onClose={() => setNotifyOpen(false)} settings={settings} onSave={saveSettings} />
+      <IpAllowlistDialog open={ipOpen} onClose={() => setIpOpen(false)} initial={ipAllowlist} onSaved={load} />
     </div>
   );
 }
@@ -415,6 +448,69 @@ function GeoDialog({ open, onClose, status, onChanged }: { open: boolean; onClos
           </div>
         )}
         <DialogFooter><Button variant="outline" onClick={onClose}>Schließen</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function IpAllowlistDialog({ open, onClose, initial, onSaved }: { open: boolean; onClose: () => void; initial: IpAllowlist; onSaved: () => void }) {
+  const [text, setText] = useState(initial.allowlist.join("\n"));
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { if (open) { setText(initial.allowlist.join("\n")); setMsg(""); } }, [open, initial]);
+
+  const parsed = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const myIpIncluded = parsed.length === 0 || parsed.some((e) => e === initial.my_ip || initial.my_ip.startsWith(e.split("/")[0]));
+
+  async function save() {
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/settings/ip-allowlist", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allowlist: parsed }) });
+      const d = await r.json();
+      if (!r.ok) { setMsg(`Fehler: ${d.error}`); return; }
+      onSaved();
+      onClose();
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>IP-Zugriffsbeschränkung</DialogTitle>
+          <DialogDescription>Eine IP oder CIDR pro Zeile. Leer = alle IPs erlaubt. Gilt für die gesamte Admin-UI (außer <code>/api/v1</code>).</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="rounded-md border border-zinc-700/50 bg-zinc-900/40 px-3 py-2 text-xs flex items-center gap-2">
+            <span className="text-muted-foreground">Deine IP:</span>
+            <code className="font-mono">{initial.my_ip}</code>
+          </div>
+          {!myIpIncluded && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+              <span>Deine IP ist nicht in der Liste — du sperrst dich selbst aus!</span>
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label className="text-xs">IPs / CIDR-Bereiche (eine pro Zeile)</Label>
+            <textarea
+              className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 resize-none"
+              rows={6}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={"192.168.1.0/24\n10.0.0.1\n2001:db8::1"}
+            />
+            <p className="text-[11px] text-muted-foreground">{parsed.length === 0 ? "Kein Filter — alle IPs haben Zugriff." : `${parsed.length} Eintrag/Einträge aktiv.`}</p>
+          </div>
+          {msg && <p className="text-xs text-red-400">{msg}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Abbrechen</Button>
+          <Button onClick={save} disabled={busy} variant={!myIpIncluded && parsed.length > 0 ? "destructive" : "default"}>
+            {busy ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+            {!myIpIncluded && parsed.length > 0 ? "Trotzdem speichern" : "Speichern"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
