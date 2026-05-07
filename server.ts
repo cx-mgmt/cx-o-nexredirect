@@ -101,7 +101,7 @@ app.prepare().then(() => {
         return;
       }
 
-      // IP allowlist for admin UI (skips /api/v1 public API)
+      // IP allowlist for admin UI (skips /api/v1 public API and loopback)
       const reqPath = parsedUrl.pathname || "/";
       if (!reqPath.startsWith("/api/v1")) {
         const allowlist = parseAllowlist(getSetting("admin_ip_allowlist"));
@@ -110,7 +110,8 @@ app.prepare().then(() => {
             ((req.headers["x-forwarded-for"] || "") as string).split(",")[0].trim() ||
             req.socket.remoteAddress ||
             "unknown";
-          if (!isIpAllowed(clientIp, allowlist)) {
+          const isLoopback = clientIp === "127.0.0.1" || clientIp === "::1" || clientIp.startsWith("::ffff:127.");
+          if (!isLoopback && !isIpAllowed(clientIp, allowlist)) {
             res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
             res.end(
               `<!doctype html><html><head><title>403 Forbidden</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div style="text-align:center"><h1 style="color:#f87171">403 Forbidden</h1><p>Deine IP-Adresse (<code>${clientIp}</code>) ist nicht in der Zugriffsliste.</p></div></body></html>`
