@@ -50,11 +50,20 @@ export function resolveHost(host: string): ResolvedRedirect | null {
   return cache.get(host.toLowerCase()) ?? null;
 }
 
+function isPrivateOrLoopbackIp(h: string): boolean {
+  if (h === "localhost" || h === "127.0.0.1" || h === "::1") return true;
+  // RFC 1918 — never used as redirect domains
+  if (/^10\./.test(h)) return true;
+  if (/^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[01])\./.test(h)) return true;
+  return false;
+}
+
 export function isAdminHost(host: string): boolean {
   const baseDomain = getSetting("base_domain");
   const serverIp = getSetting("server_ip");
   const h = host.toLowerCase().split(":")[0];
-  if (h === "localhost" || h === "127.0.0.1" || h === "::1") return true;
+  if (isPrivateOrLoopbackIp(h)) return true;
   if (baseDomain && h === baseDomain.toLowerCase()) return true;
   if (serverIp && h === serverIp) return true;
   return false;
