@@ -1,6 +1,6 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "license": "MIT",
   "overrides": {
     "postcss": "^8.5.13",
@@ -26,7 +26,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "maxmind": "^4.3.20",
-    "next": "^15.5.15",
+    "next": "^15.5.18",
     "next-auth": "^4.24.14",
     "nodemailer": "^8.0.7",
     "puppeteer-core": "^24.42.0",
