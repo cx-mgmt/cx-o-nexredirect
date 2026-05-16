@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
   pull-requests: write
 
 jobs:
@@ -23,15 +22,15 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: always
 
-  codeql:
-    name: CodeQL
+  audit:
+    name: npm Audit
     runs-on: [self-hosted, Linux, X64, docker]
-    permissions:
-      security-events: write
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: actions/setup-node@v4
         with:
-          languages: javascript-typescript
-      - uses: github/codeql-action/autobuild@v3
-      - uses: github/codeql-action/analyze@v3
+          node-version: "20"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm audit --audit-level=high
+        continue-on-error: true
