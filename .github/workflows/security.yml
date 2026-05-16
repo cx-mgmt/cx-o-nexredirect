@@ -1,36 +1,27 @@
 name: Security Scan
 
 on:
-  pull_request:
-    branches: ["**"]
   push:
     branches: [main]
+  pull_request:
+    branches: ["**"]
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
-  dependency-review:
-    name: Dependency Review
-    runs-on: [self-hosted, Linux, X64, docker]
-    if: github.event_name == "pull_request"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-          comment-summary-in-pr: always
-
   audit:
     name: npm Audit
     runs-on: [self-hosted, Linux, X64, docker]
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
+
       - run: npm ci --no-audit --no-fund
+
       - run: npm audit --audit-level=high
         continue-on-error: true
