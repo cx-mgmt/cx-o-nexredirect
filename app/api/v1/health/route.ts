@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { getDb } from "@/lib/db";
+import { authenticateToken } from "@/lib/api-auth";
 import pkg from "../../../../package.json";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const authed = authenticateToken(req);
+
+  if (!authed) {
+    return NextResponse.json({ ok: true });
+  }
+
   const db = getDb();
   const since24h = Date.now() - 24 * 60 * 60 * 1000;
 

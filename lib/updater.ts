@@ -1,9 +1,11 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { getSetting, setSetting, getDb } from "./db";
 import pkg from "../package.json";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+const VALID_TAG = /^v?\d+\.\d+\.\d+(-[\w.]+)?$/;
 
 const REPO = process.env.NEXREDIRECT_REPO || "CoreXManagement/CoreX-NexRedirect";
 
@@ -104,11 +106,14 @@ export async function applyUpdate(): Promise<{ ok: boolean; from: string; to: st
   if (!to || !status.update_available) {
     return { ok: false, from, to, error: "no_update" };
   }
+  if (!VALID_TAG.test(to)) {
+    return { ok: false, from, to, error: "invalid_tag" };
+  }
 
   const updateScript = process.env.NEXREDIRECT_UPDATE_SCRIPT || "/opt/corex-nexredirect/scripts/update.sh";
   const start = Date.now();
   try {
-    const { stdout, stderr } = await execAsync(`sudo -n ${updateScript} ${to}`, { timeout: 5 * 60 * 1000 });
+    const { stdout, stderr } = await execFileAsync("sudo", ["-n", updateScript, to], { timeout: 5 * 60 * 1000 });
     getDb().prepare("INSERT INTO update_log (from_version, to_version, ts, status, log) VALUES (?, ?, ?, 'success', ?)")
       .run(from, to, start, (stdout + "\n" + stderr).slice(0, 10000));
     return { ok: true, from, to };

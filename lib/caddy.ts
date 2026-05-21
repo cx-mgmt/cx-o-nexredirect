@@ -1,10 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { getDb, getSetting, type DomainRow, type DomainGroupRow } from "./db";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const CADDYFILE_PATH = process.env.NEXREDIRECT_CADDYFILE || "/etc/caddy/Caddyfile";
 const CADDY_ADMIN = process.env.CADDY_ADMIN_URL || "http://localhost:2019";
@@ -84,7 +84,7 @@ export async function reloadCaddy(): Promise<{ ok: boolean; error?: string }> {
 
   // Try shell `caddy reload` first — it talks to admin API as caddy itself, no Origin-header issues.
   try {
-    await execAsync(`caddy reload --config ${CADDYFILE_PATH} --address localhost:2019`, { timeout: 30_000 });
+    await execFileAsync("caddy", ["reload", "--config", CADDYFILE_PATH, "--address", "localhost:2019"], { timeout: 30_000 });
     return { ok: true };
   } catch (e) {
     // Fall back to direct admin API POST (older Caddy / different admin URL).
