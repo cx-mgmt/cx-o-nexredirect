@@ -3,6 +3,7 @@ import { getDb, getSetting } from "./db";
 import { checkDomainDns } from "./dns";
 import { reloadCaddy } from "./caddy";
 import { invalidateRedirectCache } from "./redirect-resolver";
+import { applyUpdate, checkForUpdate } from "./updater";
 
 let started = false;
 const timers: NodeJS.Timeout[] = [];
@@ -61,6 +62,19 @@ async function pruneIpBlocklist() {
   getDb().prepare("DELETE FROM ip_blocklist WHERE expires_at < ?").run(Date.now());
 }
 
+async function runAutoUpdate() {
+  if (getSetting("update_auto") !== "true") return;
+  const status = await checkForUpdate();
+  if (!status.update_available) return;
+  console.log(`[job:auto-update] update available (${status.current} → ${status.latest}), applying`);
+  const result = await applyUpdate();
+  if (result.ok) {
+    console.log(`[job:auto-update] applied ${result.from} → ${result.to}`);
+  } else {
+    console.error(`[job:auto-update] failed: ${result.error}`);
+  }
+}
+
 export function startJobs() {
   if (started) return;
   started = true;
@@ -79,6 +93,11 @@ export function startJobs() {
   }, 5 * 60 * 1000);
   // IP blocklist cleanup: hourly
   schedule(pruneIpBlocklist, HOUR);
+  // Auto-update check: every 6h, first run 10min after boot
+  setTimeout(() => {
+    runAutoUpdate().catch(() => {});
+    schedule(runAutoUpdate, 6 * HOUR);
+  }, 10 * 60 * 1000);
 
   console.log("[jobs] background jobs started");
 }
