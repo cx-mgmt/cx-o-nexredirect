@@ -6,6 +6,7 @@ export type ResolvedRedirect = {
   target_url: string;
   redirect_code: number;
   preserve_path: boolean;
+  catchall_url: string | null;
   sunset: SunsetConfig | null;
 };
 
@@ -29,6 +30,7 @@ function loadCache(): Map<string, ResolvedRedirect> {
       target_url: target,
       redirect_code: d.redirect_code,
       preserve_path: !!d.preserve_path,
+      catchall_url: d.catchall_url ?? null,
       sunset: parseSunset(d),
     };
     m.set(d.domain.toLowerCase(), r);

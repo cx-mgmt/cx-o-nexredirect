@@ -29,6 +29,7 @@ const createSchema = z.object({
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).default(301),
   preserve_path: z.boolean().default(true),
   include_www: z.boolean().default(true),
+  catchall_url: z.string().url().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid", details: parsed.error.flatten() }, { status: 400 });
   }
-  const { domain, target_url, group_id, redirect_code, preserve_path, include_www } = parsed.data;
+  const { domain, target_url, group_id, redirect_code, preserve_path, include_www, catchall_url } = parsed.data;
 
   if (!isValidDomain(domain)) return NextResponse.json({ error: "invalid_domain" }, { status: 400 });
   if (!target_url && !group_id) return NextResponse.json({ error: "target_required" }, { status: 400 });
@@ -50,8 +51,8 @@ export async function POST(req: Request) {
   if (existing) return NextResponse.json({ error: "domain_exists" }, { status: 409 });
 
   const result = db
-    .prepare(`INSERT INTO domains (domain, status, target_url, group_id, redirect_code, preserve_path, include_www, created_by, created_at)
-              VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?)`)
+    .prepare(`INSERT INTO domains (domain, status, target_url, group_id, redirect_code, preserve_path, include_www, catchall_url, created_by, created_at)
+              VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(
       domain,
       target_url ?? null,
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       redirect_code,
       preserve_path ? 1 : 0,
       include_www ? 1 : 0,
+      catchall_url ?? null,
       Number(session.user.id),
       Date.now()
     );

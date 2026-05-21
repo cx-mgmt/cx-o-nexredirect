@@ -34,6 +34,7 @@ export default function NewDomainPage() {
   const [redirectCode, setRedirectCode] = useState<301 | 302>(302);
   const [preservePath, setPreservePath] = useState(true);
   const [includeWww, setIncludeWww] = useState(true);
+  const [catchallUrl, setCatchallUrl] = useState("");
   const [groups, setGroups] = useState<Group[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -58,6 +59,7 @@ export default function NewDomainPage() {
         redirect_code: redirectCode,
         preserve_path: preservePath,
         include_www: includeWww,
+        catchall_url: catchallUrl.trim() || null,
       };
       if (targetMode === "url") body.target_url = targetUrl.trim();
       else body.group_id = groupId;
@@ -140,6 +142,20 @@ export default function NewDomainPage() {
                         <option key={g.id} value={g.id} className="bg-zinc-900 text-zinc-100">{g.name} → {g.target_url}</option>
                       ))}
                     </select>
+                  </div>
+                )}
+
+                {targetMode === "url" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="catchall">Catch-all URL <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                    <Input
+                      id="catchall"
+                      type="url"
+                      placeholder="https://fallback.de — für alle Pfade außer /"
+                      value={catchallUrl}
+                      onChange={(e) => setCatchallUrl(e.target.value)}
+                    />
+                    <p className="text-[11px] text-muted-foreground">domain.com/ → Ziel-URL, domain.com/irgendwas → Catch-all URL.</p>
                   </div>
                 )}
 

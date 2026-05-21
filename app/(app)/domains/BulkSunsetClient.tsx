@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, AlertCircle, ArrowRight, Loader2, Sunset, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, ArrowRight, Loader2, Sunset, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,16 +36,42 @@ function timeAgo(ts: number | null): string {
   return `vor ${d} d`;
 }
 
+type ImportResult = { imported: number; errors: { row: number; domain: string; error: string }[] };
+
 export function DomainsListClient({ domains }: { domains: DomainListRow[] }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [enabled, setEnabled] = useState(true);
   const [title, setTitle] = useState("Diese Domain wird abgeschaltet");
   const [message, setMessage] = useState("");
   const [buttonLabel, setButtonLabel] = useState("Weiter");
   const [sunsetDate, setSunsetDate] = useState("");
   const [saving, setSaving] = useState(false);
+
+  async function handleImport() {
+    const file = importFileRef.current?.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const r = await fetch("/api/domains/import.csv", {
+        method: "POST",
+        headers: { "Content-Type": "text/csv" },
+        body: text,
+      });
+      const d = await r.json();
+      setImportResult(d);
+      if (d.imported > 0) router.refresh();
+    } finally {
+      setImporting(false);
+    }
+  }
 
   function toggle(id: number) {
     setSelected((cur) => {
@@ -103,6 +129,12 @@ export function DomainsListClient({ domains }: { domains: DomainListRow[] }) {
 
   return (
     <div className="p-8 space-y-3">
+      <div className="flex justify-end">
+        <Button size="sm" variant="outline" onClick={() => { setImportResult(null); setImportOpen(true); }}>
+          <Upload className="mr-1 h-3 w-3" />CSV importieren
+        </Button>
+      </div>
+
       {selected.size > 0 && (
         <div className="flex items-center justify-between rounded-md border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm">
           <span>{selected.size} ausgewählt</span>
@@ -185,6 +217,46 @@ export function DomainsListClient({ domains }: { domains: DomainListRow[] }) {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={importOpen} onOpenChange={(v) => { if (!v) setImportOpen(false); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Domains importieren (CSV)</DialogTitle>
+            <DialogDescription>
+              Spalten: <code className="font-mono text-xs">domain</code>, <code className="font-mono text-xs">target_url</code> (Pflicht) — optional: <code className="font-mono text-xs">redirect_code</code>, <code className="font-mono text-xs">preserve_path</code>, <code className="font-mono text-xs">include_www</code>, <code className="font-mono text-xs">group</code>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <input ref={importFileRef} type="file" accept=".csv,text/csv" className="block w-full text-sm text-zinc-300 file:mr-3 file:rounded file:border-0 file:bg-zinc-800 file:px-3 file:py-1 file:text-xs file:text-zinc-200 hover:file:bg-zinc-700" />
+            {importResult && (
+              <div className="space-y-2">
+                <p className="text-sm">
+                  <span className="text-green-400 font-medium">{importResult.imported} importiert</span>
+                  {importResult.errors.length > 0 && <span className="ml-2 text-red-400">{importResult.errors.length} Fehler</span>}
+                </p>
+                {importResult.errors.length > 0 && (
+                  <ul className="max-h-40 overflow-y-auto divide-y divide-zinc-800/70 text-xs">
+                    {importResult.errors.map((e, i) => (
+                      <li key={i} className="py-1 flex gap-2">
+                        <span className="text-zinc-500">Z.{e.row}</span>
+                        <span className="font-mono text-zinc-300">{e.domain}</span>
+                        <span className="text-red-400">{e.error}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Schließen</Button>
+            <Button onClick={handleImport} disabled={importing}>
+              {importing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Upload className="mr-2 h-3 w-3" />}
+              Importieren
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <DialogContent>

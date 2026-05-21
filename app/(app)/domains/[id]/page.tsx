@@ -32,6 +32,12 @@ export default async function DomainDetailPage({ params }: { params: Promise<{ i
   const visitors30d = (db.prepare("SELECT COUNT(DISTINCT ip_hash) AS n FROM hits WHERE domain_id = ? AND ts > ?").get(domain.id, since30d) as { n: number }).n;
   const visitorsTotal = (db.prepare("SELECT COUNT(DISTINCT ip_hash) AS n FROM hits WHERE domain_id = ?").get(domain.id) as { n: number }).n;
 
+  const topReferers = db.prepare(`
+    SELECT referer, COUNT(*) AS n
+    FROM hits WHERE domain_id = ? AND ts > ? AND referer IS NOT NULL AND referer != ''
+    GROUP BY referer ORDER BY n DESC LIMIT 10
+  `).all(domain.id, since30d) as { referer: string; n: number }[];
+
   const dailyRows = db.prepare(`
     SELECT strftime('%Y-%m-%d', ts/1000, 'unixepoch') AS day, COUNT(*) AS hits
     FROM hits WHERE domain_id = ? AND ts > ?
@@ -73,6 +79,7 @@ export default async function DomainDetailPage({ params }: { params: Promise<{ i
                 redirect_code: domain.redirect_code,
                 preserve_path: domain.preserve_path,
                 include_www: domain.include_www,
+                catchall_url: domain.catchall_url,
               }}
             />
           </CardContent>
@@ -111,6 +118,27 @@ export default async function DomainDetailPage({ params }: { params: Promise<{ i
           </CardHeader>
           <CardContent>
             <SunsetEditor domainId={domain.id} initial={parseSunset(domain)} />
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-sm">Top Referer</CardTitle>
+            <CardDescription className="text-xs">Quellen der letzten 30 Tage</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topReferers.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">Keine Referer-Daten.</p>
+            ) : (
+              <ul className="divide-y divide-zinc-800/70">
+                {topReferers.map((r, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 py-1.5 text-xs">
+                    <span className="truncate font-mono text-zinc-300 min-w-0">{r.referer}</span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{r.n.toLocaleString("de-DE")}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 

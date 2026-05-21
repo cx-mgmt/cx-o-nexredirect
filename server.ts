@@ -81,9 +81,13 @@ app.prepare().then(() => {
             return;
           }
 
-          const target = resolved.preserve_path
-            ? resolved.target_url + (parsedUrl.path || "")
-            : resolved.target_url;
+          const reqPathname = parsedUrl.pathname || "/";
+          const hasNonRootPath = reqPathname.length > 1;
+          const target = resolved.catchall_url && hasNonRootPath
+            ? resolved.catchall_url
+            : resolved.preserve_path
+              ? resolved.target_url + (parsedUrl.path || "")
+              : resolved.target_url;
           res.writeHead(resolved.redirect_code || 302, {
             Location: target,
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",

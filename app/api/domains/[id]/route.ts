@@ -20,6 +20,7 @@ const updateSchema = z.object({
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).optional(),
   preserve_path: z.boolean().optional(),
   include_www: z.boolean().optional(),
+  catchall_url: z.string().url().nullable().optional(),
   sunset_config: sunsetSchema.nullable().optional(),
 });
 

@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { RefreshCcw, Trash2, Loader2, ExternalLink, FileDown } from "lucide-react";
+import { RefreshCcw, Trash2, Loader2, ExternalLink, FileDown, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DomainActions({ id, status, hitsTotal = 0, domainName = "" }: { id: number; status: string; hitsTotal?: number; domainName?: string }) {
@@ -50,6 +50,11 @@ export function DomainActions({ id, status, hitsTotal = 0, domainName = "" }: { 
       <Button asChild variant="outline" size="sm" className="w-full">
         <a href={`/api/domains/${id}/report.pdf`} download>
           <FileDown className="mr-2 h-3 w-3" />PDF-Report
+        </a>
+      </Button>
+      <Button asChild variant="outline" size="sm" className="w-full">
+        <a href={`/api/domains/${id}/qr`} download={`${domainName}-qr.svg`}>
+          <QrCode className="mr-2 h-3 w-3" />QR-Code (SVG)
         </a>
       </Button>
       <Button onClick={del} variant="destructive" size="sm" className="w-full" disabled={busy !== null}>

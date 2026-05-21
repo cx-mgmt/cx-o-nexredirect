@@ -7,7 +7,7 @@ import { TopDomainsBarChart } from "@/components/charts/TopDomainsBarChart";
 import { CountryPie } from "@/components/charts/CountryPie";
 import { ExportPdfButton } from "./ExportPdfButton";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, Users, MousePointer } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,11 @@ function getStats() {
     FROM hits WHERE ts > ?
     GROUP BY day ORDER BY day
   `).all(since) as { day: string; hits: number }[];
+
+  const summary = db.prepare(`
+    SELECT COUNT(*) AS total_hits, COUNT(DISTINCT ip_hash) AS unique_visitors
+    FROM hits WHERE ts > ?
+  `).get(since) as { total_hits: number; unique_visitors: number };
 
   const top = db.prepare(`
     SELECT d.domain, COUNT(h.id) AS hits
@@ -34,6 +39,15 @@ function getStats() {
     GROUP BY country ORDER BY hits DESC LIMIT 8
   `).all(since) as { country: string; hits: number }[];
 
+  const topReferers = db.prepare(`
+    SELECT referer, COUNT(*) AS n
+    FROM hits
+    WHERE ts > ? AND referer IS NOT NULL AND referer != ''
+    GROUP BY referer
+    ORDER BY n DESC
+    LIMIT 15
+  `).all(since) as { referer: string; n: number }[];
+
   const dead = db.prepare(`
     SELECT d.id, d.domain, d.target_url, d.created_at
     FROM domains d
@@ -42,7 +56,7 @@ function getStats() {
     ORDER BY d.created_at
   `).all(Date.now() - 90 * 24 * 60 * 60 * 1000) as { id: number; domain: string; target_url: string | null; created_at: number }[];
 
-  return { daily, top, byCountry, dead };
+  return { daily, summary, top, byCountry, topReferers, dead };
 }
 
 export default function AnalyticsPage() {
@@ -64,6 +78,27 @@ export default function AnalyticsPage() {
       />
 
       <div className="space-y-4 p-8">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <MousePointer className="h-8 w-8 text-cyan-400 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{s.summary.total_hits.toLocaleString("de-DE")}</p>
+                <p className="text-xs text-muted-foreground">Hits (30 Tage)</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <Users className="h-8 w-8 text-cyan-400 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{s.summary.unique_visitors.toLocaleString("de-DE")}</p>
+                <p className="text-xs text-muted-foreground">Unique Visitors (30 Tage)</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader><CardTitle>Hits pro Tag</CardTitle></CardHeader>
@@ -78,6 +113,26 @@ export default function AnalyticsPage() {
             <CardContent><CountryPie data={s.byCountry} /></CardContent>
           </Card>
           <Card>
+            <CardHeader>
+              <CardTitle>Top Referer</CardTitle>
+              <CardDescription>Quellen der letzten 30 Tage</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {s.topReferers.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Keine Referer-Daten.</p>
+              ) : (
+                <ul className="divide-y divide-zinc-800/70">
+                  {s.topReferers.map((r, i) => (
+                    <li key={i} className="flex items-center justify-between py-2 text-sm gap-3">
+                      <span className="truncate font-mono text-xs text-zinc-300 min-w-0">{r.referer}</span>
+                      <Badge variant="zinc" className="shrink-0 tabular-nums">{r.n.toLocaleString("de-DE")}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Tote Domains</CardTitle>
               <CardDescription>Aktive Domains ohne Hits in den letzten 90 Tagen — kandidaten zum Kündigen</CardDescription>

@@ -1,6 +1,6 @@
 {
   "name": "corex-nexredirect",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "license": "MIT",
   "overrides": {
     "postcss": "^8.5.13",
@@ -31,6 +31,7 @@
     "next-auth": "^4.24.14",
     "nodemailer": "^8.0.7",
     "puppeteer-core": "^24.42.0",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.13.3",
@@ -43,6 +44,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10.4.21",

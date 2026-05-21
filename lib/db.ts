@@ -165,6 +165,11 @@ function runMigrations(db: Database.Database) {
     db.exec("ALTER TABLE users ADD COLUMN username TEXT");
     try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL"); } catch {}
   }
+
+  // catchall_url: redirect non-root paths to a separate target
+  if (!hasColumn(db, "domains", "catchall_url")) {
+    db.exec("ALTER TABLE domains ADD COLUMN catchall_url TEXT");
+  }
 }
 
 export function getSetting(key: string): string | null {
@@ -215,6 +220,7 @@ export type DomainRow = {
   redirect_code: number;
   preserve_path: number;
   include_www: number;
+  catchall_url: string | null;
   created_by: number | null;
   created_at: number;
   verified_at: number | null;
