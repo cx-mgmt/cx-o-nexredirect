@@ -15,6 +15,6 @@
 
 ---
 
-[Repo](https://github.com/CoreXManagement/CoreX-NexRedirect)
-[Releases](https://github.com/CoreXManagement/CoreX-NexRedirect/releases)
-[Issues](https://github.com/CoreXManagement/CoreX-NexRedirect/issues)
+[Repo](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect)
+[Releases](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/releases)
+[Issues](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/issues)

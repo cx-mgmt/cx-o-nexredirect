@@ -10,7 +10,7 @@
 ## One-Line Install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/CoreXManagement/CoreX-NexRedirect/main/scripts/install.sh | sudo bash
+curl -sSL https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/main/scripts/install.sh | sudo bash
 ```
 
 Das Script:
@@ -48,7 +48,7 @@ Wer das Curl-Pipe-Bash nicht mag:
 sudo apt install -y caddy nodejs git sqlite3 chromium
 sudo useradd --system --home /opt/corex-nexredirect --shell /usr/sbin/nologin nexredirect
 sudo mkdir -p /opt/corex-nexredirect /var/lib/corex-nexredirect
-sudo git clone https://github.com/CoreXManagement/CoreX-NexRedirect /opt/corex-nexredirect
+sudo git clone https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect /opt/corex-nexredirect
 sudo chown -R nexredirect:nexredirect /opt/corex-nexredirect /var/lib/corex-nexredirect
 sudo -u nexredirect bash -c "cd /opt/corex-nexredirect && npm ci && npm run build"
 sudo cp /opt/corex-nexredirect/systemd/corex-nexredirect.service /etc/systemd/system/

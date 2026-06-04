@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CoreX NexRedirect — One-line install
-# Usage: curl -sSL https://raw.githubusercontent.com/CoreXManagement/CoreX-NexRedirect/main/scripts/install.sh | sudo bash
+# Usage: curl -sSL https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/raw/branch/main/scripts/install.sh | sudo bash
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ if ! command -v apt-get >/dev/null 2>&1; then
   exit 1
 fi
 
-REPO="${NEXREDIRECT_REPO:-CoreXManagement/CoreX-NexRedirect}"
+REPO="${NEXREDIRECT_REPO:-admin_hg/cx-nexredirect}"
 INSTALL_DIR="${NEXREDIRECT_DIR:-/opt/corex-nexredirect}"
 DATA_DIR="${NEXREDIRECT_DATA_DIR:-/var/lib/corex-nexredirect}"
 SERVICE_USER="nexredirect"
@@ -53,7 +53,7 @@ fi
 echo "==> Latest Release ermitteln"
 TARGET_TAG="${NEXREDIRECT_TAG:-}"
 if [[ -z "$TARGET_TAG" ]]; then
-  TARGET_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
+  TARGET_TAG=$(curl -fsSL "https://forgejo.mgmt.corexmanagement.de/api/v1/repos/${REPO}/releases/latest" 2>/dev/null \
     | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/' || true)
 fi
 if [[ -z "$TARGET_TAG" ]]; then
@@ -70,7 +70,7 @@ if [[ -d "$INSTALL_DIR/.git" ]]; then
   git -C "$INSTALL_DIR" reset --hard --quiet "$TARGET_REF" 2>/dev/null || git -C "$INSTALL_DIR" reset --hard --quiet "origin/$TARGET_REF"
 else
   rm -rf "$INSTALL_DIR"
-  git clone --quiet "https://github.com/${REPO}.git" "$INSTALL_DIR"
+  git clone --quiet "https://forgejo.mgmt.corexmanagement.de/${REPO}.git" "$INSTALL_DIR"
   git -C "$INSTALL_DIR" checkout --quiet "$TARGET_REF" 2>/dev/null || true
 fi
 
@@ -84,8 +84,8 @@ sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && npm ci --no-audit --no-
 echo "==> Prebuilt .next/ versuchen (SHA256-verifiziert)"
 PREBUILT_OK=0
 if [[ -n "$TARGET_TAG" ]]; then
-  ASSET_URL="https://github.com/${REPO}/releases/download/${TARGET_TAG}/nexredirect-next-${TARGET_TAG}.tar.gz"
-  CHECKSUM_URL="https://github.com/${REPO}/releases/download/${TARGET_TAG}/nexredirect-checksums-${TARGET_TAG}.txt"
+  ASSET_URL="https://forgejo.mgmt.corexmanagement.de/${REPO}/releases/download/${TARGET_TAG}/nexredirect-next-${TARGET_TAG}.tar.gz"
+  CHECKSUM_URL="https://forgejo.mgmt.corexmanagement.de/${REPO}/releases/download/${TARGET_TAG}/nexredirect-checksums-${TARGET_TAG}.txt"
   if curl -fsSL -o /tmp/next-build.tgz "$ASSET_URL" 2>/dev/null; then
     VERIFIED=0
     if curl -fsSL -o /tmp/next-checksums.txt "$CHECKSUM_URL" 2>/dev/null; then

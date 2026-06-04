@@ -24,28 +24,28 @@ Self-hosted Domain-Redirect-Server mit Web-Admin-UI und Per-Domain-Analytics. Vi
 ## Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/CoreXManagement/CoreX-NexRedirect/main/scripts/install.sh | sudo bash
+curl -sSL https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/main/scripts/install.sh | sudo bash
 ```
 
 Anschließend Setup unter `http://<server-ip>/setup` aufrufen.
 
-→ Vollständige Anleitung im **[Wiki](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki)**.
+→ Vollständige Anleitung im **[Wiki](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki)**.
 
 ## Dokumentation
 
-Komplette Doku ist im **[GitHub Wiki](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki)**:
+Komplette Doku ist im **[GitHub Wiki](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki)**:
 
-- [Installation](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Installation)
-- [DNS Setup](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/DNS-Setup)
-- [Domain Management](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Domain-Management)
-- [Sunset Pages](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Sunset-Pages)
-- [Analytics & Reports](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Analytics-&-Reports)
-- [Bot Filter](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Bot-Filter)
-- [CLI](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/CLI)
-- [API](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/API)
-- [Updates](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Updates)
-- [Architecture](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Architecture)
-- [Troubleshooting](https://github.com/CoreXManagement/CoreX-NexRedirect/wiki/Troubleshooting)
+- [Installation](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Installation)
+- [DNS Setup](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/DNS-Setup)
+- [Domain Management](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Domain-Management)
+- [Sunset Pages](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Sunset-Pages)
+- [Analytics & Reports](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Analytics-&-Reports)
+- [Bot Filter](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Bot-Filter)
+- [CLI](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/CLI)
+- [API](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/API)
+- [Updates](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Updates)
+- [Architecture](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Architecture)
+- [Troubleshooting](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/wiki/Troubleshooting)
 
 ## Stack
 
@@ -59,7 +59,7 @@ Komplette Doku ist im **[GitHub Wiki](https://github.com/CoreXManagement/CoreX-N
 ## Lokale Entwicklung
 
 ```bash
-git clone https://github.com/CoreXManagement/CoreX-NexRedirect
+git clone https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect
 cd CoreX-NexRedirect
 npm install
 npm run dev

@@ -1,6 +1,6 @@
 # Bot Filter
 
-NexRedirect zählt nur "echte" Besucher — Scanner, Crawler und Monitoring-Tools werden serverseitig herausgefiltert. Kombination mehrerer Heuristiken in [`lib/hits.ts`](https://github.com/CoreXManagement/CoreX-NexRedirect/blob/main/lib/hits.ts):
+NexRedirect zählt nur "echte" Besucher — Scanner, Crawler und Monitoring-Tools werden serverseitig herausgefiltert. Kombination mehrerer Heuristiken in [`lib/hits.ts`](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/blob/main/lib/hits.ts):
 
 ## 1. HTTP-Method
 
