@@ -24,7 +24,7 @@ Self-hosted Domain-Redirect-Server mit Web-Admin-UI und Per-Domain-Analytics. Vi
 ## Installation
 
 ```bash
-curl -sSL https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/main/scripts/install.sh | sudo bash
+curl -sSL https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/raw/branch/main/scripts/install.sh | sudo bash
 ```
 
 Anschließend Setup unter `http://<server-ip>/setup` aufrufen.
