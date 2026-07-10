@@ -22,16 +22,19 @@ export function getSmtpConfig(): SmtpConfig | null {
   };
 }
 
-// Robuste HTML->Plaintext-Konvertierung fuer den Text-Teil der Mail.
-// Entfernt script/style komplett und strippt Tags mehrstufig, sodass auch
-// unvollstaendige Tag-Fragmente (z. B. "<script") nicht uebrig bleiben.
+// HTML -> Plaintext fuer den Text-Teil der Mail. Kein Regex-"Tag-Filter"
+// (der laesst sich umgehen): Tags werden iterativ entfernt, bis der String
+// stabil ist, danach bleiben keine Winkelklammern uebrig.
 function htmlToText(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/</g, " ")
+  let text = html;
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^<>]*>/g, " ");
+  } while (text !== prev);
+  return text
     .replace(/&nbsp;/gi, " ")
+    .replace(/[<>]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
