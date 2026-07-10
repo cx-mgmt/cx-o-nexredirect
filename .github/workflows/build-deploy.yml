@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
-      ${{ github.ref_name == 'prod' && format('{0}:latest', env.IMAGE) || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +46,7 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ steps.meta.outputs.branch }}
             ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
+            ${{ github.ref_name == 'prod' && format('{0}:latest', env.IMAGE) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
