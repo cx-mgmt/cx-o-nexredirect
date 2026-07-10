@@ -1,4 +1,4 @@
-# cx-nexredirect
+# cx-o-nexredirect
 
 > NexRedirect - Self-hosted Domain-Redirect-Server
 
@@ -23,7 +23,7 @@ npm run dev        # http://localhost:3000
 ## Deploy
 
 GitHub Actions baut das Docker-Image und pusht es nach
-`ghcr.io/cx-mgmt/cx-nexredirect:<branch>`. Coolify zieht das fertige Image
+`ghcr.io/cx-mgmt/cx-o-nexredirect:<branch>`. Coolify zieht das fertige Image
 (kein Build am Server). Siehe `.github/workflows/build-deploy.yml`.
 
 ## Datenbank

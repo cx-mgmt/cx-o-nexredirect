@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/cx-mgmt/cx-nexredirect
+  IMAGE: ghcr.io/cx-mgmt/cx-o-nexredirect
 
 jobs:
   build-push:
@@ -50,7 +50,7 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
           labels: |
-            org.opencontainers.image.source=https://github.com/cx-mgmt/cx-nexredirect
+            org.opencontainers.image.source=https://github.com/cx-mgmt/cx-o-nexredirect
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Trivy image scan (report only)
@@ -64,9 +64,9 @@ jobs:
 
   deploy:
     needs: build-push
-    if: github.ref_name == 'prod' || github.ref_name == 'preview'
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'prod' && 'production' || 'preview' }}
+    # Jeder Branch deployt in sein gleichnamiges Environment (prod/preview/dev/test).
+    environment: ${{ github.ref_name }}
     steps:
       - name: Trigger Coolify deploy
         env:
