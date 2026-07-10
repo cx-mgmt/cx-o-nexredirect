@@ -41,9 +41,12 @@ export async function GET(req: Request) {
     }, { status: 500 });
   }
 
+  // Signiertes, URL-sicheres Token (base64url.hmac). Host/Port sind fest auf
+  // localhost; das Token wird zusaetzlich encodiert, damit keinerlei
+  // vom Nutzer beeinflusster Wert die Ziel-URL (Host) verändern kann (SSRF).
   const token = createPdfToken(params, 90);
   const port = process.env.PORT || "3000";
-  const reportUrl = `http://127.0.0.1:${port}/r/${token}`;
+  const reportUrl = `http://127.0.0.1:${port}/r/${encodeURIComponent(token)}`;
 
   try {
     const puppeteer = await import("puppeteer-core");

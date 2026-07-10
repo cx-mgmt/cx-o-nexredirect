@@ -27,6 +27,9 @@ export async function validatePassword(pwd: string, opts: { checkPwned?: boolean
 
 async function pwnedCount(pwd: string): Promise<number> {
   try {
+    // SHA-1 ist hier KEIN Passwort-Speicher-Hash, sondern zwingend vom
+    // HaveIBeenPwned-"Range"-API (k-Anonymitaet) vorgeschrieben: es wird nur
+    // das 5-stellige SHA-1-Praefix an die API gesendet, nie das Passwort.
     const sha = crypto.createHash("sha1").update(pwd).digest("hex").toUpperCase();
     const prefix = sha.slice(0, 5);
     const suffix = sha.slice(5);

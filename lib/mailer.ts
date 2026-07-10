@@ -22,6 +22,20 @@ export function getSmtpConfig(): SmtpConfig | null {
   };
 }
 
+// Robuste HTML->Plaintext-Konvertierung fuer den Text-Teil der Mail.
+// Entfernt script/style komplett und strippt Tags mehrstufig, sodass auch
+// unvollstaendige Tag-Fragmente (z. B. "<script") nicht uebrig bleiben.
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/</g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function sendMail(opts: { to: string; subject: string; html: string; text?: string }): Promise<{ ok: boolean; error?: string }> {
   const cfg = getSmtpConfig();
   if (!cfg) return { ok: false, error: "smtp_not_configured" };
@@ -38,7 +52,7 @@ export async function sendMail(opts: { to: string; subject: string; html: string
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
-      text: opts.text || opts.html.replace(/<[^>]+>/g, ""),
+      text: opts.text ?? htmlToText(opts.html),
     });
     return { ok: true };
   } catch (e) {
