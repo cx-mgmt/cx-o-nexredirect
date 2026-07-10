@@ -131,6 +131,6 @@ sudo systemctl start caddy corex-nexredirect
 
 ## Fragen / Bugs
 
-GitHub Issues: https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/issues
+GitHub Issues: https://github.com/cx-mgmt/cx-o-nexredirect/issues
 
 → Zurück zu [[Home]]

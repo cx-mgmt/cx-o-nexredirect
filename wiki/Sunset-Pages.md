@@ -36,7 +36,7 @@ Custom Server (`server.ts`) prüft beim Resolve eines Hosts:
 
 Hit wird beim ERSTEN Request gezählt (Notice-Render). Continue-Click zählt NICHT als zweiter Hit (würde sonst doppeln).
 
-HTML-Page ist in [`lib/sunset-html.ts`](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/blob/main/lib/sunset-html.ts) — schwarz auf weiß, kein JS, kein externes Asset, kein Tracking. Funktioniert auch ohne JS-Browser.
+HTML-Page ist in [`lib/sunset-html.ts`](https://github.com/cx-mgmt/cx-o-nexredirect/blob/prod/lib/sunset-html.ts) — schwarz auf weiß, kein JS, kein externes Asset, kein Tracking. Funktioniert auch ohne JS-Browser.
 
 ## Wichtige Hinweise
 

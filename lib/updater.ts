@@ -7,7 +7,7 @@ const execFileAsync = promisify(execFile);
 
 const VALID_TAG = /^v?\d+\.\d+\.\d+(-[\w.]+)?$/;
 
-const REPO = process.env.NEXREDIRECT_REPO || "admin_hg/cx-nexredirect";
+const REPO = process.env.NEXREDIRECT_REPO || "cx-mgmt/cx-o-nexredirect";
 
 export type ReleaseInfo = {
   tag_name: string;
@@ -43,8 +43,8 @@ function cmpVersions(a: string, b: string): number {
 
 export async function fetchLatestRelease(includePrerelease = false): Promise<ReleaseInfo | null> {
   const url = includePrerelease
-    ? `https://forgejo.mgmt.corexmanagement.de/api/v1/repos/${REPO}/releases?per_page=10`
-    : `https://forgejo.mgmt.corexmanagement.de/api/v1/repos/${REPO}/releases/latest`;
+    ? `https://api.github.com/repos/${REPO}/releases?per_page=10`
+    : `https://api.github.com/repos/${REPO}/releases/latest`;
   try {
     const res = await fetch(url, {
       headers: { "Accept": "application/json", "User-Agent": "corex-nexredirect" },

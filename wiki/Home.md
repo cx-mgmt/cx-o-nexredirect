@@ -14,7 +14,7 @@ Du hast viele Domains, die nur auf eine andere Webseite weiterleiten sollen — 
 ## Schnellstart
 
 ```bash
-curl -sSL https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/main/scripts/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/cx-mgmt/cx-o-nexredirect/prod/scripts/install.sh | sudo bash
 ```
 
 Setup-Wizard danach: `http://<server-ip>/setup`
@@ -40,4 +40,4 @@ Next.js 15 + TypeScript + TailwindCSS + better-sqlite3 (eine Datei) + Caddy (Aut
 
 ## Lizenz
 
-[MIT](https://forgejo.mgmt.corexmanagement.de/admin_hg/cx-nexredirect/blob/main/LICENSE) — viel Spaß damit.
+[MIT](https://github.com/cx-mgmt/cx-o-nexredirect/blob/prod/LICENSE) — viel Spaß damit.
