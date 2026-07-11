@@ -1,20 +1,20 @@
 # syntax=docker/dockerfile:1
 # Custom-Server Next.js (tsx server.ts). Fertiges Image fuer Coolify (kein Build am Server).
-FROM node:26-bookworm-slim AS deps
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 
-FROM node:26-bookworm-slim AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
-FROM node:26-bookworm-slim AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
