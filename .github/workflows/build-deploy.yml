@@ -6,18 +6,17 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/cx-mgmt/cx-o-nexredirect
+  IMAGE: harbor.corex-infra.de/corex/cx-o-nexredirect
 
 jobs:
   build-push:
-    runs-on: ubuntu-latest
+    runs-on: cx-build
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
     steps:
@@ -31,12 +30,12 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
+      - name: An Harbor anmelden
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: harbor.corex-infra.de
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build & push image
         uses: docker/build-push-action@v6
@@ -55,6 +54,9 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Trivy image scan (report only)
+        env:
+          TRIVY_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          TRIVY_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
@@ -65,7 +67,7 @@ jobs:
 
   deploy:
     needs: build-push
-    runs-on: ubuntu-latest
+    runs-on: cx-build
     # Jeder Branch deployt in sein gleichnamiges Environment (prod/preview/dev/test).
     environment: ${{ github.ref_name }}
     steps:
