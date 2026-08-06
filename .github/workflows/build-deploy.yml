@@ -38,6 +38,7 @@ jobs:
           password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build & push image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -52,6 +53,23 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/cx-mgmt/cx-o-nexredirect
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Cosign einrichten
+        uses: sigstore/cosign-installer@v4
+
+      - name: Image signieren
+        env:
+          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        # --recursive signiert den Index *und* jedes Plattform-Manifest darunter.
+        # Harbor prueft beim Pull das plattformspezifische Manifest; nur den Index
+        # zu signieren blockiert den Pull, obwohl das Image signiert aussieht.
+        # --tlog-upload=false haelt die Digests aus dem oeffentlichen
+        # Transparenzprotokoll heraus - die Images sind privat.
+        run: |
+          cosign sign --key env://COSIGN_KEY \
+            --use-signing-config=false --tlog-upload=false --recursive --yes \
+            ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
 
       - name: Trivy image scan (report only)
         env:
