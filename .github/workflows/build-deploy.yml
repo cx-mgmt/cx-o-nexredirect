@@ -59,7 +59,7 @@ jobs:
         env:
           COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-          COSIGN_VERSION: v3.1.3
+          COSIGN_VERSION: v2.6.5
         # --recursive signiert den Index *und* jedes Plattform-Manifest darunter.
         # Harbor prueft beim Pull das plattformspezifische Manifest; nur den Index
         # zu signieren blockiert den Pull, obwohl das Image signiert aussieht.
@@ -71,7 +71,7 @@ jobs:
           curl -sSLf -o /tmp/cosign "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
           chmod +x /tmp/cosign
           /tmp/cosign sign --key env://COSIGN_KEY \
-            --use-signing-config=false --tlog-upload=false --recursive --yes \
+            --tlog-upload=false --recursive --yes \
             ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
 
       - name: Trivy image scan (report only)
