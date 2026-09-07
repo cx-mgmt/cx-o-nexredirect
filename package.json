@@ -10,7 +10,8 @@
     "ip-address": "^10.5.0",
     "next-auth": {
       "nodemailer": "$nodemailer"
-    }
+    },
+    "postcss-selector-parser": "6.1.3"
   },
   "scripts": {
     "dev": "tsx watch server.ts",
