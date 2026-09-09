@@ -34,7 +34,7 @@
     "maxmind": "^4.3.20",
     "next": "15.5.25",
     "next-auth": "^4.24.15",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^9.1.1",
     "puppeteer-core": "^25.8.0",
     "qrcode": "^1.5.4",
     "react": "^19.2.7",
