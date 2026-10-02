@@ -75,6 +75,7 @@ jobs:
             ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
 
       - name: Trivy image scan (report only)
+        continue-on-error: true
         env:
           TRIVY_USERNAME: ${{ secrets.HARBOR_USERNAME }}
           TRIVY_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
