@@ -11,6 +11,7 @@ on:
     branches: [ "prod" ]
   schedule:
     - cron: '34 10 * * 2'
+  workflow_dispatch:
 
 jobs:
   analyze:
