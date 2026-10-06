@@ -47,8 +47,12 @@ jobs:
             ${{ env.IMAGE }}:${{ steps.meta.outputs.branch }}
             ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
             ${{ github.ref_name == 'prod' && format('{0}:latest', env.IMAGE) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Cache in Harbor statt im GitHub-Cache: der Upload dorthin ging uebers
+          # Internet und dauerte gut vier Minuten, laenger als der Bau selbst.
+          cache-from: |
+            type=registry,ref=${{ env.IMAGE }}:buildcache-${{ github.ref_name }}
+            type=registry,ref=${{ env.IMAGE }}:buildcache-prod
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
           provenance: false
           labels: |
             org.opencontainers.image.source=https://github.com/cx-mgmt/cx-o-nexredirect
@@ -74,6 +78,12 @@ jobs:
             --tlog-upload=false --recursive --yes \
             ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
 
+  # Der Scan meldet nur und haelt nichts auf, deshalb laeuft er neben dem
+  # Ausrollen auf einem kleinen Runner statt den Build-Knoten zu belegen.
+  image-scan:
+    needs: build-push
+    runs-on: cx-klein
+    steps:
       - name: Trivy image scan (report only)
         continue-on-error: true
         env:
@@ -81,7 +91,7 @@ jobs:
           TRIVY_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
+          image-ref: ${{ env.IMAGE }}:${{ needs.build-push.outputs.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "0"
@@ -89,7 +99,7 @@ jobs:
 
   deploy:
     needs: build-push
-    runs-on: cx-build
+    runs-on: cx-klein
     # Jeder Branch deployt in sein gleichnamiges Environment (prod/preview/dev/test).
     environment: ${{ github.ref_name }}
     steps:
