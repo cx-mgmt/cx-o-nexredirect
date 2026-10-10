@@ -14,7 +14,8 @@ concurrency:
 
 jobs:
   security:
-    runs-on: ubuntu-latest
+    # ARC-Scale-Set cx-build. Trivy-Action laedt den Scanner selbst, das Runner-Image hat ihn nicht.
+    runs-on: cx-build
     steps:
       - uses: actions/checkout@v4
 
