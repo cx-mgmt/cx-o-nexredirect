@@ -16,7 +16,9 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    # Matrix ohne Swift, ARC-Scale-Set ist cx-build.
+    # Das Runner-Image hat kein Python, das SARIF-Skript braucht setup-python.
+    runs-on: cx-build
     permissions:
       # Checkout.
       contents: read
@@ -67,6 +69,11 @@ jobs:
         # Fehlschlag trotzdem nach Code Scanning hochladen.
         upload: never
         output: ${{ github.workspace }}/codeql-results/${{ matrix.language }}
+
+    - name: Python fuer die SARIF-Auswertung
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
 
     - name: SARIF auswerten
       if: success()
