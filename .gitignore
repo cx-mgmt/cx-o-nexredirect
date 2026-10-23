@@ -5,11 +5,16 @@ out/
 build/
 *.tsbuildinfo
 .env
+.env.*
 .env.local
 .env*.local
 data/
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
 *.mmdb
 .DS_Store
 .vscode/

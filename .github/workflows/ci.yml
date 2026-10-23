@@ -1,7 +1,16 @@
 name: CI
 
+# pull_request fuehrt die Workflow-Datei aus dem Merge-Commit aus. Ein Fork
+# kann runs-on damit auf cx-build oder cx-klein drehen. Deshalb:
+# dieser Job bleibt auf ubuntu-latest (GitHub-hosted), und Fork-PRs werden
+# uebersprungen. Self-hosted Runner haengen nur an Build & Deploy, und nur
+# an push im selben Repo.
+# Vor dem Oeffentlichmachen zusaetzlich in den Actions-Einstellungen
+# "Require approval for all outside collaborators" setzen. Eine geaenderte
+# Workflow-Datei aus einem Fork laeuft sonst erst nach menschlicher Freigabe.
 on:
   pull_request:
+    branches: [prod, preview, dev, test]
   push:
     branches: [prod, preview, dev, test]
 
@@ -14,6 +23,7 @@ concurrency:
 
 jobs:
   security:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,5 +1,9 @@
 name: Build & Deploy
 
+# Nur push im eigenen Repo. Kein pull_request: Forks wuerden sonst die
+# Workflow-Datei aus dem Merge-Commit mitbringen und cx-build / cx-klein
+# treffen koennen. Der if an jedem Job bleibt auch dann stehen, falls
+# jemand den Trigger spaeter erweitert.
 on:
   push:
     branches: [prod, preview, dev, test]
@@ -16,6 +20,7 @@ env:
 
 jobs:
   build-push:
+    if: github.event_name == 'push' && github.repository == 'cx-mgmt/cx-o-nexredirect'
     runs-on: cx-build
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
@@ -82,6 +87,7 @@ jobs:
   # Ausrollen auf einem kleinen Runner statt den Build-Knoten zu belegen.
   image-scan:
     needs: build-push
+    if: success() && github.event_name == 'push' && github.repository == 'cx-mgmt/cx-o-nexredirect'
     runs-on: cx-klein
     steps:
       - name: Trivy image scan (report only)
@@ -99,6 +105,7 @@ jobs:
 
   deploy:
     needs: build-push
+    if: success() && github.event_name == 'push' && github.repository == 'cx-mgmt/cx-o-nexredirect'
     runs-on: cx-klein
     # Jeder Branch deployt in sein gleichnamiges Environment (prod/preview/dev/test).
     environment: ${{ github.ref_name }}
