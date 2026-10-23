@@ -1,23 +1,27 @@
 name: Build & Deploy
 
+# Nur push im eigenen Repo. Kein pull_request: Forks wuerden sonst die
+# Workflow-Datei aus dem Merge-Commit mitbringen und cx-build / cx-klein
+# treffen koennen. Der if an jedem Job bleibt auch dann stehen, falls
+# jemand den Trigger spaeter erweitert.
 on:
   push:
     branches: [prod, preview, dev, test]
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/cx-mgmt/cx-o-nexredirect
+  IMAGE: harbor.corex-infra.de/corex/cx-o-nexredirect
 
 jobs:
   build-push:
-    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.repository == 'cx-mgmt/cx-o-nexredirect'
+    runs-on: cx-build
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
     steps:
@@ -31,14 +35,15 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
+      - name: An Harbor anmelden
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: harbor.corex-infra.de
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build & push image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -47,17 +52,52 @@ jobs:
             ${{ env.IMAGE }}:${{ steps.meta.outputs.branch }}
             ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
             ${{ github.ref_name == 'prod' && format('{0}:latest', env.IMAGE) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Cache in Harbor statt im GitHub-Cache: der Upload dorthin ging uebers
+          # Internet und dauerte gut vier Minuten, laenger als der Bau selbst.
+          cache-from: |
+            type=registry,ref=${{ env.IMAGE }}:buildcache-${{ github.ref_name }}
+            type=registry,ref=${{ env.IMAGE }}:buildcache-prod
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
           provenance: false
           labels: |
             org.opencontainers.image.source=https://github.com/cx-mgmt/cx-o-nexredirect
             org.opencontainers.image.revision=${{ github.sha }}
 
+
+      - name: Image signieren
+        env:
+          COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+          COSIGN_VERSION: v2.6.5
+        # --recursive signiert den Index *und* jedes Plattform-Manifest darunter.
+        # Harbor prueft beim Pull das plattformspezifische Manifest; nur den Index
+        # zu signieren blockiert den Pull, obwohl das Image signiert aussieht.
+        # --tlog-upload=false haelt die Digests aus dem oeffentlichen
+        # Transparenzprotokoll heraus - die Images sind privat.
+        run: |
+          # Direkter Download statt sigstore/cosign-installer: die Action ruft
+          # envsubst auf, das im ARC-Runner-Image nicht enthalten ist.
+          curl -sSLf -o /tmp/cosign "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64"
+          chmod +x /tmp/cosign
+          /tmp/cosign sign --key env://COSIGN_KEY \
+            --tlog-upload=false --recursive --yes \
+            ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+
+  # Der Scan meldet nur und haelt nichts auf, deshalb laeuft er neben dem
+  # Ausrollen auf einem kleinen Runner statt den Build-Knoten zu belegen.
+  image-scan:
+    needs: build-push
+    if: success() && github.event_name == 'push' && github.repository == 'cx-mgmt/cx-o-nexredirect'
+    runs-on: cx-klein
+    steps:
       - name: Trivy image scan (report only)
+        continue-on-error: true
+        env:
+          TRIVY_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+          TRIVY_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
         uses: aquasecurity/trivy-action@0.35.0
         with:
-          image-ref: ${{ env.IMAGE }}:${{ steps.meta.outputs.sha }}
+          image-ref: ${{ env.IMAGE }}:${{ needs.build-push.outputs.sha }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "0"
@@ -65,7 +105,8 @@ jobs:
 
   deploy:
     needs: build-push
-    runs-on: ubuntu-latest
+    if: success() && github.event_name == 'push' && github.repository == 'cx-mgmt/cx-o-nexredirect'
+    runs-on: cx-klein
     # Jeder Branch deployt in sein gleichnamiges Environment (prod/preview/dev/test).
     environment: ${{ github.ref_name }}
     steps:

@@ -1,18 +1,15 @@
-# Sicherheitsrichtlinie
+# Sicherheit
 
 ## Schwachstelle melden
 
-Bitte melde Sicherheitsprobleme **vertraulich** an
-**security@corexmanagement.de** — nicht über öffentliche Issues.
+Sicherheitsprobleme bitte vertraulich an **security@corexmanagement.de**. Kein öffentliches Issue, und keine Details in einem Pull Request, solange noch kein Fix draußen ist.
 
-Wir bestätigen den Eingang innerhalb von 3 Werktagen und halten dich
-über den Bearbeitungsstand auf dem Laufenden.
+Wir antworten in der Regel innerhalb von drei Werktagen und sagen Bescheid, wenn der Stand sich ändert.
 
-## Unterstützte Branches
+## Unterstützte Stände
 
-Sicherheitsupdates erfolgen auf `prod` und `preview`.
+Sicherheitsfixes gehen auf `prod`. Wenn `preview` noch ausgerollt ist, bekommt der Branch denselben Fix.
 
-## Automatisierte Prüfungen
+## Prüfungen in der Pipeline
 
-- **Dependabot** — wöchentliche Dependency-Updates (gruppiert) + Security-Alerts
-- **Trivy** — Dependency- und Container-Image-Scan in jeder Pipeline
+Trivy schaut bei jedem Lauf auf Dependencies und auf das Container-Image. Der Scan schreibt einen Bericht und hält das Deployment nicht an.

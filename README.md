@@ -1,57 +1,79 @@
 # NexRedirect
 
-> Self-hosted Domain-Redirect-Server mit Web-Oberfläche — schnelle 301/302-Weiterleitungen, Klick-Statistiken und automatischem HTTPS.
+[![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
 
-**Open Source** · Next.js · Custom-Server (Node/tsx) · SQLite · Caddy
+Self-hosted Redirect-Manager. Alte Domains zeigen per DNS auf deinen Server, NexRedirect leitet mit 301 oder 302 weiter und zeigt, welche Domains noch aufgerufen werden.
 
-## Installation (One-Line)
+## Funktionen
 
-Debian/Ubuntu-Server, als root:
+- Weiterleitungen pro Domain, festes Ziel oder Gruppe, optional mit Pfad
+- Weboberfläche für Domains, Gruppen und Sunset-Pages
+- Klickstatistik mit serverseitigem Bot-Filter, optional GeoIP (MaxMind GeoLite2)
+- CSV- und PDF-Export der Auswertungen
+- Automatisches HTTPS über Caddy
+- CLI `nexredirect` und Update aus GitHub Releases
+- REST-API mit Token
+
+## Installation
+
+Debian oder Ubuntu, als root:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/cx-mgmt/cx-o-nexredirect/prod/scripts/install.sh | sudo bash
 ```
 
-Das Skript installiert Node.js 20, Caddy (automatisches HTTPS), richtet den
-`systemd`-Dienst ein und startet den Server. Danach:
+Das Skript richtet Node.js 20, Caddy und einen systemd-Dienst ein. Danach den Einrichtungsassistenten öffnen:
 
+```text
+http://<server-ip>/setup
 ```
-Setup:  http://<server-ip>/setup
-CLI:    nexredirect help
-Logs:   nexredirect logs
-```
+
+Ausführlich: [wiki/Installation.md](wiki/Installation.md).
 
 ## Update
 
 ```bash
-sudo /opt/corex-nexredirect/scripts/update.sh
+sudo nexredirect update
 ```
 
-Oder direkt über die Web-Oberfläche (Settings → Update). NexRedirect prüft
-GitHub-Releases automatisch und kann sich selbst aktualisieren.
+Ohne Argument nimmt NexRedirect das letzte GitHub-Release. Ein bestimmter Stand geht auch, zum Beispiel `sudo nexredirect update v0.1.36`.
 
-## Features
+## CLI
 
-- **Domain-Weiterleitungen** — 301/302 pro Host, verwaltet über die Web-UI
-- **Klick-Statistiken** — Hit-Tracking mit serverseitigem Bot-Filter
-- **GeoIP** (optional, MaxMind GeoLite2) — Herkunft der Besucher
-- **Sunset-Pages** — statische Abschaltseiten ohne JS/Tracking
-- **Automatisches HTTPS** über Caddy
-- **CLI** (`nexredirect`) + Self-Update aus GitHub-Releases
+`nexredirect help` zeigt Status, Logs, Domains, Backup und Caddy. Die einzelnen Befehle stehen in [wiki/CLI.md](wiki/CLI.md).
 
 ## Dokumentation
 
-Siehe [Wiki](wiki/) — u. a. [Installation](wiki/Installation.md),
-[Bot-Filter](wiki/Bot-Filter.md), [Sunset-Pages](wiki/Sunset-Pages.md),
-[Troubleshooting](wiki/Troubleshooting.md).
+- [Installation](wiki/Installation.md)
+- [DNS-Setup](wiki/DNS-Setup.md)
+- [Domain-Management](wiki/Domain-Management.md)
+- [Sunset-Pages](wiki/Sunset-Pages.md)
+- [Analytics und Reports](wiki/Analytics-&-Reports.md)
+- [Bot-Filter](wiki/Bot-Filter.md)
+- [API](wiki/API.md)
+- [Updates](wiki/Updates.md)
+- [Architektur](wiki/Architecture.md)
+- [Troubleshooting](wiki/Troubleshooting.md)
 
-## Entwicklung
+## Technik
+
+Next.js 15, React, TypeScript, Tailwind CSS, SQLite (`better-sqlite3`), eigener Node-Server (`server.ts` über `tsx`), Caddy und systemd. Gedacht für Debian und Ubuntu.
+
+Lokal:
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+npm run dev
 ```
+
+Die Oberfläche liegt dann auf `http://localhost:3000`.
+
+## Mitmachen
+
+Fehler und Ideen als Issue, Änderungen als Pull Request gegen `prod`. Kurz schreiben, was sich ändert und wie man es nachvollzieht. Siehe [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Sicherheitslücken nicht ins Issue schreiben, sondern an security@corexmanagement.de. Siehe [SECURITY.md](SECURITY.md).
 
 ## Lizenz
 
-[MIT](LICENSE)
+[MIT](LICENSE). Copyright 2026 CoreX Management / Hendrik Garske.
