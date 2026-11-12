@@ -3,6 +3,8 @@ import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { getDb, getSetting, type DomainRow, type DomainGroupRow } from "./db";
+import { isValidDomain } from "./dns";
+import { caddySafeTarget } from "./safe-url";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,7 +15,10 @@ const APP_PORT = process.env.PORT || "3000";
 export function buildCaddyfile(): string {
   const db = getDb();
   const baseDomain = getSetting("base_domain");
-  const adminEmail = getSetting("admin_email") || "admin@example.com";
+  const configuredEmail = getSetting("admin_email") || "";
+  const adminEmail = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(configuredEmail)
+    ? configuredEmail
+    : "admin@example.com";
 
   const domains = db.prepare("SELECT * FROM domains WHERE status = 'active'").all() as DomainRow[];
   const groups = db.prepare("SELECT * FROM domain_groups").all() as DomainGroupRow[];
@@ -38,25 +43,31 @@ export function buildCaddyfile(): string {
 
   // Admin-UI
   const adminHosts: string[] = [":80"];
-  if (baseDomain) adminHosts.push(baseDomain);
+  if (baseDomain && isValidDomain(baseDomain)) adminHosts.push(baseDomain);
   lines.push(`${adminHosts.join(", ")} {`);
   lines.push(...adminHeaders);
-  lines.push(`  reverse_proxy localhost:${APP_PORT}`);
+  lines.push(`  reverse_proxy localhost:${APP_PORT} {`);
+  lines.push(`    header_up X-Forwarded-For {http.request.remote.host}`);
+  lines.push(`  }`);
   lines.push(`}`);
   lines.push(``);
 
   // Per-Domain redirect blocks → reverse_proxy to app for hit logging
   for (const d of domains) {
+    if (!isValidDomain(d.domain)) continue;
     if (baseDomain && d.domain === baseDomain) continue;
     const hosts = [d.domain];
     if (d.include_www) hosts.push(`www.${d.domain}`);
     lines.push(`${hosts.join(", ")} {`);
-    lines.push(`  reverse_proxy localhost:${APP_PORT}`);
+    lines.push(`  reverse_proxy localhost:${APP_PORT} {`);
+    lines.push(`    header_up X-Forwarded-For {http.request.remote.host}`);
+    lines.push(`  }`);
 
-    // Fallback redirect baked-in: if app is down, Caddy still redirects (no analytics)
-    const fallbackTarget = d.target_url || (d.group_id ? groupMap.get(d.group_id)?.target_url : null);
+    // Fallback nur mit geprueftem Ziel, sonst laesst sich die Caddyfile ueber die Ziel-URL verbiegen.
+    const fallbackRaw = d.target_url || (d.group_id ? groupMap.get(d.group_id)?.target_url : null);
+    const fallbackTarget = caddySafeTarget(fallbackRaw);
     if (fallbackTarget) {
-      const code = d.redirect_code || 301;
+      const code = d.redirect_code || 302;
       const target = d.preserve_path ? `${fallbackTarget}{uri}` : fallbackTarget;
       lines.push(`  handle_errors {`);
       lines.push(`    redir ${target} ${code}`);

@@ -1,4 +1,5 @@
 import type { SunsetConfig } from "./db";
+import { safeContinuePath } from "./safe-url";
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -16,11 +17,9 @@ export function renderSunsetPage(opts: {
   const button = opts.cfg.button_label || "Weiter";
   const date = opts.cfg.sunset_date ? `Geplante Abschaltung: ${opts.cfg.sunset_date}` : "";
 
-  // Continue link points back at OUR domain with nr_continue=1 — server.ts then skips the
-  // sunset interstitial and serves the actual redirect.
-  const path = opts.reqPath || "/";
-  const sep = path.includes("?") ? "&" : "?";
-  const continueUrl = `${path}${sep}nr_continue=1`;
+  // Der Weiter-Link bleibt auf dieser Domain. Protokoll-relative oder absolute
+  // Pfade wuerden die Sunset-Seite zu einem Open Redirect machen.
+  const continueUrl = safeContinuePath(opts.reqPath);
 
   return `<!doctype html>
 <html lang="de">

@@ -148,7 +148,7 @@ Environment=PORT=$APP_PORT
 Environment=NEXREDIRECT_DATA_DIR=$DATA_DIR
 Environment=NEXREDIRECT_GEOIP_PATH=$GEOIP_PATH
 Environment=NEXREDIRECT_CADDYFILE=/etc/caddy/Caddyfile
-Environment=NEXREDIRECT_UPDATE_SCRIPT=$INSTALL_DIR/scripts/update.sh
+Environment=NEXREDIRECT_UPDATE_SCRIPT=/usr/local/sbin/nexredirect-update
 Environment=NEXTAUTH_SECRET=$NEXTAUTH_SECRET
 Environment=NEXTAUTH_URL=http://$SERVER_IP
 ExecStart=$INSTALL_DIR/node_modules/.bin/tsx $INSTALL_DIR/server.ts
@@ -159,9 +159,11 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-# Allow nexredirect to run update.sh as root via sudo
+# Update-Skript liegt ausserhalb des beschreibbaren Installationsverzeichnisses.
+# Sonst kann der Dienst-User die Datei tauschen und sich ueber sudo Root verschaffen.
+install -o root -g root -m 755 "$INSTALL_DIR/scripts/update.sh" /usr/local/sbin/nexredirect-update
 cat > /etc/sudoers.d/corex-nexredirect <<EOF
-$SERVICE_USER ALL=(root) NOPASSWD: $INSTALL_DIR/scripts/update.sh
+$SERVICE_USER ALL=(root) NOPASSWD: /usr/local/sbin/nexredirect-update
 EOF
 chmod 0440 /etc/sudoers.d/corex-nexredirect
 
@@ -172,7 +174,9 @@ cat > /etc/caddy/Caddyfile <<EOF
 }
 
 :80 {
-  reverse_proxy localhost:$APP_PORT
+  reverse_proxy localhost:$APP_PORT {
+    header_up X-Forwarded-For {http.request.remote.host}
+  }
 }
 EOF
 

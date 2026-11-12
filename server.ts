@@ -14,6 +14,12 @@ import { isBlocked } from "./lib/blocklist";
 import { startJobs } from "./lib/jobs";
 import { hashIp, getSetting } from "./lib/db";
 import { parseAllowlist, isIpAllowed } from "./lib/ip-allowlist";
+import { authSecret } from "./lib/auth-secret";
+import { sanitizeInboundHeaders } from "./lib/client-ip";
+import { buildRedirectLocation, redirectTargetAllowed } from "./lib/safe-url";
+import { SECURITY_HEADERS } from "./lib/security-headers";
+
+authSecret();
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
@@ -22,26 +28,34 @@ const hostname = process.env.HOSTNAME || "0.0.0.0";
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
 app.prepare().then(() => {
   startJobs();
   const server = http.createServer(async (req, res) => {
     try {
+      const clientIp = sanitizeInboundHeaders(req.headers, req.socket.remoteAddress);
       const host = (req.headers.host || "").split(":")[0].toLowerCase();
       const parsedUrl = parse(req.url || "/", true);
+      const requestPath = parsedUrl.pathname || "/";
+      if (requestPath === "/.git" || requestPath.startsWith("/.git/")) {
+        res.writeHead(404, { "Content-Type": "text/plain", ...SECURITY_HEADERS });
+        res.end("Not found");
+        return;
+      }
 
       if (host && !isAdminHost(host)) {
         const resolved = resolveHost(host);
         if (resolved) {
-          const ip =
-            ((req.headers["x-forwarded-for"] || "") as string).split(",")[0].trim() ||
-            req.socket.remoteAddress ||
-            "unknown";
+          const ip = clientIp;
           const ua = (req.headers["user-agent"] as string) || null;
           // Hash IP early so we can use it for the scan-detector check
           const ipHash = hashIp(ip);
           // Persistent blocklist: drop without recording or redirecting
           if (isBlocked(ipHash)) {
-            res.writeHead(403, { "Content-Type": "text/plain" });
+            res.writeHead(403, { "Content-Type": "text/plain", ...SECURITY_HEADERS });
             res.end("Blocked");
             return;
           }
@@ -62,13 +76,26 @@ app.prepare().then(() => {
             }).catch(() => {});
           }
 
-          // Sunset notice: serve interstitial unless user clicked "Weiter" (?nr_continue=1)
           const reqPath = req.url || "/";
+          const location = buildRedirectLocation({
+            targetUrl: resolved.target_url,
+            catchallUrl: resolved.catchall_url,
+            preservePath: resolved.preserve_path,
+            pathname: parsedUrl.pathname,
+            path: parsedUrl.path,
+          });
+          if (!location || !(await redirectTargetAllowed(location))) {
+            res.writeHead(404, { "Content-Type": "text/plain", ...SECURITY_HEADERS });
+            res.end("Redirect target rejected");
+            return;
+          }
+
+          // Sunset notice: serve interstitial unless user clicked "Weiter" (?nr_continue=1)
           const isContinue = parsedUrl.query?.nr_continue === "1";
           if (resolved.sunset && !isContinue) {
             const html = renderSunsetPage({
               domain: resolved.domain,
-              target: resolved.target_url,
+              target: location,
               preservePath: resolved.preserve_path,
               reqPath,
               cfg: resolved.sunset,
@@ -76,29 +103,24 @@ app.prepare().then(() => {
             res.writeHead(200, {
               "Content-Type": "text/html; charset=utf-8",
               "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+              ...SECURITY_HEADERS,
             });
             res.end(html);
             return;
           }
 
-          const reqPathname = parsedUrl.pathname || "/";
-          const hasNonRootPath = reqPathname.length > 1;
-          const target = resolved.catchall_url && hasNonRootPath
-            ? resolved.catchall_url
-            : resolved.preserve_path
-              ? resolved.target_url + (parsedUrl.path || "")
-              : resolved.target_url;
           res.writeHead(resolved.redirect_code || 302, {
-            Location: target,
+            Location: location,
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
             Pragma: "no-cache",
             Expires: "0",
+            ...SECURITY_HEADERS,
           });
           res.end();
           return;
         }
 
-        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8", ...SECURITY_HEADERS });
         res.end(
           `<!doctype html><html><head><title>Domain not configured</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div><h1>Domain nicht konfiguriert</h1><p>Diese Domain ist auf diesem Server nicht eingerichtet.</p></div></body></html>`
         );
@@ -110,15 +132,11 @@ app.prepare().then(() => {
       if (!reqPath.startsWith("/api/v1")) {
         const allowlist = parseAllowlist(getSetting("admin_ip_allowlist"));
         if (allowlist.length > 0) {
-          const clientIp =
-            ((req.headers["x-forwarded-for"] || "") as string).split(",")[0].trim() ||
-            req.socket.remoteAddress ||
-            "unknown";
-          const isLoopback = clientIp === "127.0.0.1" || clientIp === "::1" || clientIp.startsWith("::ffff:127.");
+          const isLoopback = clientIp === "127.0.0.1";
           if (!isLoopback && !isIpAllowed(clientIp, allowlist)) {
-            res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+            res.writeHead(403, { "Content-Type": "text/html; charset=utf-8", ...SECURITY_HEADERS });
             res.end(
-              `<!doctype html><html><head><title>403 Forbidden</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div style="text-align:center"><h1 style="color:#f87171">403 Forbidden</h1><p>Deine IP-Adresse (<code>${clientIp}</code>) ist nicht in der Zugriffsliste.</p></div></body></html>`
+              `<!doctype html><html><head><title>403 Forbidden</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div style="text-align:center"><h1 style="color:#f87171">403 Forbidden</h1><p>Deine IP-Adresse (<code>${escapeHtml(clientIp)}</code>) ist nicht in der Zugriffsliste.</p></div></body></html>`
             );
             return;
           }

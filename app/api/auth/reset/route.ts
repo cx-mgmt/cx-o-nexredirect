@@ -36,12 +36,17 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: "user_gone" }, { status: 400 });
 
   const hash = await bcrypt.hash(parsed.data.password, 12);
-  db.transaction(() => {
+  const now = Date.now();
+  const applied = db.transaction(() => {
+    const info = db.prepare(
+      "UPDATE password_resets SET used_at = ? WHERE id = ? AND used_at IS NULL AND expires_at >= ?"
+    ).run(now, reset.id, now);
+    if (info.changes !== 1) return false;
     db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, user.id);
-    db.prepare("UPDATE password_resets SET used_at = ? WHERE id = ?").run(Date.now(), reset.id);
-    // Invalidate all OTHER outstanding resets for this user
-    db.prepare("UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL").run(Date.now(), user.id);
-  })();
+    db.prepare("UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL").run(now, user.id);
+    return true;
+  }).immediate();
+  if (!applied) return NextResponse.json({ error: "invalid_or_expired" }, { status: 400 });
 
   logAudit({ user_id: user.id, user_email: user.email, action: "auth.reset", target_type: "user", target_id: user.id });
   return NextResponse.json({ ok: true });

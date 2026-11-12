@@ -5,10 +5,11 @@ import { authOptions } from "@/lib/auth";
 import { getDb, type DomainGroupRow } from "@/lib/db";
 import { reloadCaddy } from "@/lib/caddy";
 import { invalidateRedirectCache } from "@/lib/redirect-resolver";
+import { isSafeRedirectTarget } from "@/lib/safe-url";
 
 const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  target_url: z.string().url().optional(),
+  target_url: z.string().max(2048).refine(isSafeRedirectTarget, { message: "unsafe_target" }).optional(),
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).optional(),
 });
 
