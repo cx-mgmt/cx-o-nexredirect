@@ -88,18 +88,40 @@ export async function POST(req: Request) {
     const tarPath = path.join(tmpDir, "geo.tgz");
     await fs.writeFile(tarPath, buf);
 
+    const listed = await new Promise<string>((resolve, reject) => {
+      const p = spawn("tar", ["-tzf", tarPath]);
+      let out = "";
+      let err = "";
+      p.stdout.on("data", (chunk) => { out += chunk.toString(); });
+      p.stderr.on("data", (chunk) => { err += chunk.toString(); });
+      p.on("error", reject);
+      p.on("exit", (code) => (code === 0 ? resolve(out) : reject(new Error(err || `tar exit ${code}`))));
+    });
+    const member = listed.split("\n").map((line) => line.trim()).find((name) => {
+      if (!name.endsWith("GeoLite2-Country.mmdb")) return false;
+      if (path.isAbsolute(name)) return false;
+      return !name.split(/[\\/]/).includes("..");
+    });
+    if (!member) {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      return NextResponse.json({ error: "mmdb_not_found_in_archive" }, { status: 500 });
+    }
+
     await new Promise<void>((resolve, reject) => {
-      const p = spawn("tar", ["-xzf", tarPath, "-C", tmpDir]);
+      const p = spawn("tar", ["-xzf", tarPath, "-C", tmpDir, "--no-absolute-names", member]);
       p.on("error", reject);
       p.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`tar exit ${code}`))));
     });
 
-    const entries = await fs.readdir(tmpDir, { recursive: true }) as string[];
-    const mmdb = entries.find((e) => e.endsWith("GeoLite2-Country.mmdb"));
-    if (!mmdb) return NextResponse.json({ error: "mmdb_not_found_in_archive" }, { status: 500 });
+    const extracted = path.resolve(tmpDir, member);
+    const root = path.resolve(tmpDir);
+    if (extracted !== root && !extracted.startsWith(root + path.sep)) {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+      return NextResponse.json({ error: "mmdb_path_rejected" }, { status: 500 });
+    }
 
     await fs.mkdir(path.dirname(MMDB_PATH), { recursive: true });
-    await fs.copyFile(path.join(tmpDir, mmdb), MMDB_PATH);
+    await fs.copyFile(extracted, MMDB_PATH);
     await fs.rm(tmpDir, { recursive: true, force: true });
 
     resetGeoReader();

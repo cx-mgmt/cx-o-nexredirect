@@ -3,6 +3,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { getDb, type UserRow } from "./db";
 import { checkLimit } from "./rate-limit";
+import { authSecret } from "./auth-secret";
+
+// Fester Hash, damit ein unbekannter Account genauso lange dauert wie ein echter Vergleich.
+const DUMMY_PASSWORD_HASH = "$2a$12$vx5kQdLNeN6wFUqcWcuG1OauIlnECUg7GGfVX9nIc9XtTOIz2yrgq";
 
 function ipFromReq(req: unknown): string {
   if (!req || typeof req !== "object") return "unknown";
@@ -15,7 +19,9 @@ function ipFromReq(req: unknown): string {
 }
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET || "nexredirect-dev-secret-please-change",
+  get secret() {
+    return authSecret();
+  },
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: { signIn: "/login" },
   providers: [
@@ -62,7 +68,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user) {
-          await new Promise((r) => setTimeout(r, 200));
+          await bcrypt.compare(credentials.password, DUMMY_PASSWORD_HASH);
           return null;
         }
         const valid = await bcrypt.compare(credentials.password, user.password_hash);

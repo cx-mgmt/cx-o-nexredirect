@@ -1,6 +1,9 @@
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { authOptions } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +36,9 @@ const ACTION_VARIANT: Record<string, "green" | "amber" | "blue" | "destructive" 
   "update.apply": "amber",
 };
 
-export default function AuditPage() {
+export default async function AuditPage() {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") redirect("/dashboard");
   const rows = getDb().prepare("SELECT id, ts, user_email, action, target_type, target_id, details FROM audit_log ORDER BY ts DESC LIMIT 500").all() as Entry[];
 
   return (

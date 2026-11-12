@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDb, getSetting, setSetting } from "@/lib/db";
+import { getSetting, setSetting } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { sendMail } from "@/lib/mailer";
+import { checkLimit } from "@/lib/rate-limit";
 
 const KEYS = ["smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from", "smtp_secure"];
 
@@ -45,14 +46,15 @@ export async function POST(req: Request) {
   // Test-Mail
   const u = await requireAdmin();
   if (u instanceof NextResponse) return u;
+  const limit = checkLimit(`smtp-test:${u.id}`, 5, 60 * 60 * 1000);
+  if (!limit.allowed) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   const body = await req.json().catch(() => null) as { to?: string } | null;
-  const to = body?.to || u.email;
+  const requested = body?.to?.trim() || "";
+  const to = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(requested) ? requested : u.email;
   const r = await sendMail({
     to,
     subject: "NexRedirect — SMTP-Test",
     html: `<p>Test-Mail von NexRedirect.</p><p>Wenn du das liest, läuft SMTP korrekt.</p>`,
   });
-  // Use db to silence unused-import (no-op)
-  void getDb;
   return NextResponse.json(r);
 }

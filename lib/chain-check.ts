@@ -1,3 +1,5 @@
+import { assertOutboundUrl } from "./safe-url";
+
 export type ChainResult = {
   is_chain: boolean;
   hops: number;
@@ -12,7 +14,9 @@ export async function checkRedirectChain(url: string): Promise<ChainResult> {
 
   try {
     while (hops < maxHops) {
-      const res = await fetch(current, {
+      const safe = await assertOutboundUrl(current);
+      if (!safe) return { is_chain: hops > 0, hops, error: "target_rejected" };
+      const res = await fetch(safe.toString(), {
         method: "HEAD",
         redirect: "manual",
         signal: AbortSignal.timeout(8_000),
@@ -22,7 +26,7 @@ export async function checkRedirectChain(url: string): Promise<ChainResult> {
         const location = res.headers.get("location");
         if (!location) break;
         try {
-          current = new URL(location, current).href;
+          current = new URL(location, safe).href;
         } catch {
           break;
         }
@@ -31,13 +35,8 @@ export async function checkRedirectChain(url: string): Promise<ChainResult> {
         break;
       }
     }
-  } catch (e) {
-    return {
-      is_chain: hops > 0,
-      hops,
-      final_url: hops > 0 ? current : undefined,
-      error: e instanceof Error ? e.message : String(e),
-    };
+  } catch {
+    return { is_chain: hops > 0, hops, error: "fetch_failed" };
   }
 
   return { is_chain: hops > 0, hops, final_url: hops > 0 ? current : undefined };
