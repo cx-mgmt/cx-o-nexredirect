@@ -15,6 +15,12 @@ import { startJobs } from "./lib/jobs";
 import { hashIp, getSetting } from "./lib/db";
 import { parseAllowlist, isIpAllowed } from "./lib/ip-allowlist";
 
+// X-Forwarded-For is reflected on the admin 403 page. Escape text so a
+// crafted header cannot break out of the HTML.
+function sanitizeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT || "3000", 10);
 const hostname = process.env.HOSTNAME || "0.0.0.0";
@@ -116,9 +122,10 @@ app.prepare().then(() => {
             "unknown";
           const isLoopback = clientIp === "127.0.0.1" || clientIp === "::1" || clientIp.startsWith("::ffff:127.");
           if (!isLoopback && !isIpAllowed(clientIp, allowlist)) {
+            const safeClientIp = sanitizeHtml(clientIp);
             res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
             res.end(
-              `<!doctype html><html><head><title>403 Forbidden</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div style="text-align:center"><h1 style="color:#f87171">403 Forbidden</h1><p>Deine IP-Adresse (<code>${clientIp}</code>) ist nicht in der Zugriffsliste.</p></div></body></html>`
+              `<!doctype html><html><head><title>403 Forbidden</title><style>body{background:#0a0c10;color:#e5e7eb;font-family:ui-monospace,monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}</style></head><body><div style="text-align:center"><h1 style="color:#f87171">403 Forbidden</h1><p>Deine IP-Adresse (<code>${safeClientIp}</code>) ist nicht in der Zugriffsliste.</p></div></body></html>`
             );
             return;
           }
