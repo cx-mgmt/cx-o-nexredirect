@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CoreX NexRedirect — Self-update
-# Usage: sudo /opt/corex-nexredirect/scripts/update.sh [tag]
-# Aufgerufen von der App via sudo (siehe install.sh / sudoers.d/corex-nexredirect)
+# Usage: sudo /usr/local/sbin/nexredirect-update [tag]
+# Die App ruft nur diese root-eigene Kopie auf, nicht das Skript im Installationsverzeichnis.
 
 set -euo pipefail
 
@@ -9,6 +9,25 @@ TAG="${1:-}"
 REPO="${NEXREDIRECT_REPO:-cx-mgmt/cx-o-nexredirect}"
 INSTALL_DIR="${NEXREDIRECT_DIR:-/opt/corex-nexredirect}"
 SERVICE_USER="nexredirect"
+WRAPPER="/usr/local/sbin/nexredirect-update"
+
+if [[ -n "$TAG" && ! "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; then
+  echo "ungueltiges Tag" >&2
+  exit 1
+fi
+
+install_wrapper() {
+  install -o root -g root -m 755 "$INSTALL_DIR/scripts/update.sh" "$WRAPPER"
+  cat > /etc/sudoers.d/corex-nexredirect <<EOF
+$SERVICE_USER ALL=(root) NOPASSWD: $WRAPPER
+EOF
+  chmod 0440 /etc/sudoers.d/corex-nexredirect
+  local unit="/etc/systemd/system/corex-nexredirect.service"
+  if [[ -f "$unit" ]]; then
+    sed -i "s#Environment=NEXREDIRECT_UPDATE_SCRIPT=.*#Environment=NEXREDIRECT_UPDATE_SCRIPT=$WRAPPER#" "$unit"
+    systemctl daemon-reload || true
+  fi
+}
 
 cd "$INSTALL_DIR"
 
@@ -36,10 +55,12 @@ fi
 
 if [[ -n "$TAG" ]]; then
   echo "==> Update auf $TAG"
-  sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git fetch --tags --quiet && git checkout --quiet '$TAG'"
+  sudo -u "$SERVICE_USER" -H INSTALL_DIR="$INSTALL_DIR" TAG="$TAG" \
+    bash -c 'cd "$INSTALL_DIR" && git fetch --tags --quiet && git checkout --quiet -- "$TAG"'
 else
   echo "==> Update auf prod (kein Release gefunden)"
-  sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git fetch --quiet && git checkout --quiet prod && git pull --ff-only --quiet"
+  sudo -u "$SERVICE_USER" -H INSTALL_DIR="$INSTALL_DIR" \
+    bash -c 'cd "$INSTALL_DIR" && git fetch --quiet && git checkout --quiet prod && git pull --ff-only --quiet'
 fi
 
 sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && npm ci --no-audit --no-fund"
@@ -81,8 +102,9 @@ fi
 ln -sf "$INSTALL_DIR/bin/nexredirect" /usr/local/bin/nexredirect
 chmod +x "$INSTALL_DIR/bin/nexredirect" 2>/dev/null || true
 
-VERSION=$(sudo -u "$SERVICE_USER" -H bash -c "cd '$INSTALL_DIR' && git describe --tags --always")
-echo "Update auf $VERSION abgeschlossen — Restart wird in 2s ausgelöst"
+VERSION=$(sudo -u "$SERVICE_USER" -H INSTALL_DIR="$INSTALL_DIR" bash -c 'cd "$INSTALL_DIR" && git describe --tags --always')
+install_wrapper
+echo "Update auf $VERSION abgeschlossen. Restart wird in 2s ausgeloest."
 
 # Detach restart so this process can return cleanly to the API caller
 # (the API can then respond before its own service gets killed).

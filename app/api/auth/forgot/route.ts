@@ -11,8 +11,8 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "anon";
-  const rl = checkLimit(`forgot:ip:${ip}`, 5, 60 * 60 * 1000);
-  if (!rl.allowed) {
+  const ipLimit = checkLimit(`forgot:ip:${ip}`, 5, 60 * 60 * 1000);
+  if (!ipLimit.allowed) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
@@ -21,17 +21,18 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 400 });
 
   const id = parsed.data.identifier.toLowerCase().trim();
+  const idLimit = checkLimit(`forgot:id:${id}`, 3, 60 * 60 * 1000);
+  if (!idLimit.allowed) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  }
+
   const db = getDb();
   const user = db.prepare("SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1").get(id, id) as UserRow | undefined;
 
-  // Always return ok so attackers can't enumerate users
-  if (!user) {
+  // Immer dieselbe Antwort, sonst verraten SMTP-Status und Versandfehler, ob das Konto existiert.
+  if (!user || !getSmtpConfig()) {
     await new Promise((r) => setTimeout(r, 300));
     return NextResponse.json({ ok: true });
-  }
-
-  if (!getSmtpConfig()) {
-    return NextResponse.json({ error: "smtp_not_configured" }, { status: 503 });
   }
 
   // Generate token (raw → URL; hash → DB)
@@ -58,9 +59,8 @@ export async function POST(req: Request) {
 
   const result = await sendMail({ to: user.email, subject, html });
   if (!result.ok) {
-    // Don't leak details; admin sees in audit
     logAudit({ user_id: user.id, user_email: user.email, action: "auth.forgot_send_failed", target_type: "user", target_id: user.id, details: { error: result.error } });
-    return NextResponse.json({ error: "send_failed" }, { status: 500 });
+    return NextResponse.json({ ok: true });
   }
 
   logAudit({ user_id: user.id, user_email: user.email, action: "auth.forgot", target_type: "user", target_id: user.id });

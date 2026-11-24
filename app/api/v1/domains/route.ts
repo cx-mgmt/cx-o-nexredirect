@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireScope } from "@/lib/api-auth";
 import { getDb, type DomainRow } from "@/lib/db";
 import { isValidDomain, getServerIps } from "@/lib/dns";
+import { isSafeRedirectTarget } from "@/lib/safe-url";
 
 export async function GET(req: Request) {
   const auth = requireScope(req, "read:domains");
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
 
 const schema = z.object({
   domain: z.string().min(3).transform((s) => s.toLowerCase().trim()),
-  target_url: z.string().url().optional(),
+  target_url: z.string().max(2048).refine(isSafeRedirectTarget, { message: "unsafe_target" }).optional(),
   group_id: z.number().int().optional(),
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).default(301),
   preserve_path: z.boolean().default(true),

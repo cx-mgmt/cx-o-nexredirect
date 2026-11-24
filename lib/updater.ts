@@ -110,7 +110,7 @@ export async function applyUpdate(): Promise<{ ok: boolean; from: string; to: st
     return { ok: false, from, to, error: "invalid_tag" };
   }
 
-  const updateScript = process.env.NEXREDIRECT_UPDATE_SCRIPT || "/opt/corex-nexredirect/scripts/update.sh";
+  const updateScript = process.env.NEXREDIRECT_UPDATE_SCRIPT || "/usr/local/sbin/nexredirect-update";
   const start = Date.now();
   try {
     const { stdout, stderr } = await execFileAsync("sudo", ["-n", updateScript, to], { timeout: 5 * 60 * 1000 });

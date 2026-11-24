@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb, logAudit } from "@/lib/db";
 import { isValidDomain } from "@/lib/dns";
+import { isSafeRedirectTarget } from "@/lib/safe-url";
 
 function parseCsv(text: string): Record<string, string>[] {
   const lines = text.replace(/^﻿/, "").split(/\r?\n/).filter((l) => l.trim());
@@ -69,6 +70,10 @@ export async function POST(req: Request) {
     if (!isValidDomain(domain)) { errors.push({ row: i + 2, domain, error: "invalid_domain" }); continue; }
 
     const targetUrl = (r.target_url || r.target || r.url || "").trim() || null;
+    if (targetUrl && !isSafeRedirectTarget(targetUrl)) {
+      errors.push({ row: i + 2, domain, error: "unsafe_target" });
+      continue;
+    }
     const groupName = (r.group || r.gruppe || "").trim();
     const groupId = groupName ? groupByName.get(groupName) ?? null : null;
     if (!targetUrl && !groupId) { errors.push({ row: i + 2, domain, error: "no_target" }); continue; }

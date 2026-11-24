@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { getDb, logAudit, type DomainRow } from "@/lib/db";
 import { reloadCaddy } from "@/lib/caddy";
 import { invalidateRedirectCache } from "@/lib/redirect-resolver";
+import { isSafeRedirectTarget } from "@/lib/safe-url";
 
 const sunsetSchema = z.object({
   enabled: z.boolean(),
@@ -15,12 +16,12 @@ const sunsetSchema = z.object({
 });
 
 const updateSchema = z.object({
-  target_url: z.string().url().nullable().optional(),
+  target_url: z.string().max(2048).refine(isSafeRedirectTarget, { message: "unsafe_target" }).nullable().optional(),
   group_id: z.number().int().nullable().optional(),
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).optional(),
   preserve_path: z.boolean().optional(),
   include_www: z.boolean().optional(),
-  catchall_url: z.string().url().nullable().optional(),
+  catchall_url: z.string().max(2048).refine(isSafeRedirectTarget, { message: "unsafe_target" }).nullable().optional(),
   sunset_config: sunsetSchema.nullable().optional(),
 });
 

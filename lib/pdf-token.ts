@@ -1,9 +1,8 @@
 import crypto from "crypto";
-
-const SECRET = process.env.NEXTAUTH_SECRET || "nexredirect-dev-secret-please-change";
+import { authSecret } from "./auth-secret";
 
 function sign(payload: string): string {
-  return crypto.createHmac("sha256", SECRET).update(payload).digest("hex");
+  return crypto.createHmac("sha256", authSecret()).update(payload).digest("hex");
 }
 
 export function createPdfToken(params: Record<string, string | number | boolean>, ttlSec = 60): string {
@@ -16,7 +15,10 @@ export function createPdfToken(params: Record<string, string | number | boolean>
 export function verifyPdfToken(token: string): Record<string, string> | null {
   const [b64, sig] = token.split(".");
   if (!b64 || !sig) return null;
-  if (sign(b64) !== sig) return null;
+  const expected = sign(b64);
+  const left = Buffer.from(expected);
+  const right = Buffer.from(sig);
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) return null;
   try {
     const decoded = JSON.parse(Buffer.from(b64, "base64url").toString("utf8")) as { p: Record<string, string>; exp: number };
     if (Date.now() > decoded.exp) return null;

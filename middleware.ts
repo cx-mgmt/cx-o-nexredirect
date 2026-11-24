@@ -1,15 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-
-const PUBLIC_PATHS = ["/login", "/setup", "/api/auth", "/api/setup", "/api/v1", "/r/"];
+import { authSecret } from "./lib/auth-secret";
+import { isPublicPath } from "./lib/public-paths";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET || "nexredirect-dev-secret-please-change" });
+  const token = await getToken({ req, secret: authSecret() });
   if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";

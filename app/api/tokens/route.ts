@@ -8,6 +8,7 @@ import { ALL_SCOPES, generateToken, type Scope } from "@/lib/api-auth";
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (session.user.role !== "admin") return NextResponse.json({ error: "forbidden", code: "admin_required" }, { status: 403 });
   const tokens = getDb()
     .prepare("SELECT id, name, scopes, created_at, last_used_at, revoked_at FROM api_tokens ORDER BY created_at DESC")
     .all();

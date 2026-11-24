@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getDb, type DomainGroupRow } from "@/lib/db";
+import { isSafeRedirectTarget } from "@/lib/safe-url";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -16,7 +17,7 @@ export async function GET() {
 
 const schema = z.object({
   name: z.string().min(1).max(100),
-  target_url: z.string().url(),
+  target_url: z.string().max(2048).refine(isSafeRedirectTarget, { message: "unsafe_target" }),
   redirect_code: z.union([z.literal(301), z.literal(302), z.literal(307), z.literal(308)]).default(301),
 });
 

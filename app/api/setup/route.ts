@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { getDb, isSetupComplete, setSetting, getDailySalt } from "@/lib/db";
 import { validatePassword } from "@/lib/passwords";
+import { isValidDomain } from "@/lib/dns";
 
 const schema = z.object({
   email: z.string().email(),
@@ -22,6 +23,9 @@ export async function POST(req: Request) {
   }
 
   const { email, password, baseDomain } = parsed.data;
+  if (baseDomain && !isValidDomain(baseDomain.trim())) {
+    return NextResponse.json({ error: "invalid_base_domain" }, { status: 400 });
+  }
 
   const pwdCheck = await validatePassword(password);
   if (!pwdCheck.ok) return NextResponse.json({ error: "weak_password", reason: pwdCheck.reason }, { status: 400 });
@@ -30,12 +34,18 @@ export async function POST(req: Request) {
   const now = Date.now();
 
   const db = getDb();
-  db.transaction(() => {
+  const created = db.transaction(() => {
+    const flag = db.prepare("SELECT value FROM settings WHERE key = 'setup_complete'").get() as { value: string } | undefined;
+    if (flag?.value === "true") return false;
+    const existing = (db.prepare("SELECT COUNT(*) AS n FROM users").get() as { n: number }).n;
+    if (existing > 0) return false;
     db.prepare("INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, 'admin', ?)")
       .run(email.toLowerCase().trim(), password_hash, now);
     if (baseDomain) setSetting("base_domain", baseDomain.trim());
     setSetting("setup_complete", "true");
-  })();
+    return true;
+  }).immediate();
+  if (!created) return NextResponse.json({ error: "Setup already complete" }, { status: 403 });
 
   getDailySalt();
 
