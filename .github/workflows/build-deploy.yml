@@ -25,7 +25,7 @@ jobs:
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Image tags
         id: meta
@@ -33,10 +33,10 @@ jobs:
           echo "branch=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           echo "sha=sha-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: An Harbor anmelden
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: harbor.corex-infra.de
           username: ${{ secrets.HARBOR_USERNAME }}
@@ -44,7 +44,7 @@ jobs:
 
       - name: Build & push image
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: true
@@ -95,7 +95,7 @@ jobs:
         env:
           TRIVY_USERNAME: ${{ secrets.HARBOR_USERNAME }}
           TRIVY_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: ${{ env.IMAGE }}:${{ needs.build-push.outputs.sha }}
           severity: HIGH,CRITICAL
